@@ -1,0 +1,52 @@
+name: Statutory Error / Correction Report
+description: Report a typo, incorrect commencement date (w.e.f.), or missing footnote
+title: "[Correction]: <Act Name> - Section <Number>"
+labels: ["data-correction", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping keep Open Laws India accurate. Please provide the exact Act and Section details along with an official government reference.
+
+  - type: input
+    id: act_id
+    attributes:
+      label: Act ID or Canonical Name
+      description: e.g. "A1860-45" or "Indian Penal Code, 1860"
+      placeholder: "A1860-45"
+    validations:
+      required: true
+
+  - type: input
+    id: section_number
+    attributes:
+      label: Section Number or Ref
+      description: e.g. "Section 376" or "Order VIII Rule 1"
+      placeholder: "376"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_text
+    attributes:
+      label: Current (Incorrect) Wording or Metadata
+      description: What currently appears in the dataset
+    validations:
+      required: true
+
+  - type: textarea
+    id: corrected_text
+    attributes:
+      label: Corrected Wording or Metadata
+      description: What the text should be
+    validations:
+      required: true
+
+  - type: input
+    id: official_source
+    attributes:
+      label: Official Gazette or Government Reference
+      description: Mandatory. URL to Gazette of India, State Gazette, or India Code DSpace handle.
+      placeholder: "https://egazette.gov.in/... or Notification S.O. ..."
+    validations:
+      required: true

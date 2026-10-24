@@ -1,0 +1,46 @@
+name: Continuous Integration & Dataset Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-dataset:
+    name: Verify Dataset Integrity & Schemas
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyarrow ruff jsonschema
+
+      - name: Code Quality & Linting
+        run: |
+          ruff check scripts/
+
+      - name: Validate JSON Schemas
+        run: |
+          python -c "
+          import json, glob, jsonschema
+          for schema_path in glob.glob('schemas/*.json'):
+              with open(schema_path) as f:
+                  s = json.load(f)
+              jsonschema.Draft202012Validator.check_schema(s)
+              print(f'✅ Schema valid: {schema_path}')
+          "
+
+      - name: Run Integrity Validator
+        run: |
+          python scripts/validate.py

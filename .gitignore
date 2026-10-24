@@ -22,3 +22,13 @@ venv/
 # Temporary scratch
 tmp/
 *.tmp
+.scratch/
+.cache/
+dist/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+
+# serena cache
+.serena/
+

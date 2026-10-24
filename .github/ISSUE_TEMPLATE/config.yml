@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Legal Research & Statutory Discussions
+    url: https://github.com/kanoonhq/open-laws/discussions
+    about: Ask questions, discuss legislative interpretations, or chat with fellow legal researchers.

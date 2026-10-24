@@ -1,0 +1,49 @@
+name: Missing Act Ingestion Request
+description: Request the ingestion of a Central or State Act
+title: "[Request]: <Act Title> (<Year>)"
+labels: ["act-request", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to request the addition of an Act not currently in the corpus.
+
+  - type: input
+    id: act_title
+    attributes:
+      label: Full Title of the Act
+      placeholder: "e.g. Maharashtra Control of Organised Crime Act, 1999"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: jurisdiction
+    attributes:
+      label: Jurisdiction
+      options:
+        - Central (IN-CENTRAL)
+        - Maharashtra (IN-MH)
+        - Delhi (IN-DL)
+        - Karnataka (IN-KA)
+        - Uttar Pradesh (IN-UP)
+        - Tamil Nadu (IN-TN)
+        - West Bengal (IN-WB)
+        - Other State / UT
+    validations:
+      required: true
+
+  - type: input
+    id: act_number_year
+    attributes:
+      label: Act Number and Year
+      placeholder: "e.g. Act 30 of 1999"
+    validations:
+      required: false
+
+  - type: input
+    id: indiacode_url
+    attributes:
+      label: India Code or Gazette URL
+      placeholder: "https://www.indiacode.nic.in/handle/123456789/..."
+    validations:
+      required: true
