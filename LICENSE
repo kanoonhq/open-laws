@@ -6,19 +6,18 @@ The `kanoonhq/open-laws` project employs a dual-licensing structure to guarantee
 
 ## 1. Statutory Data, Footnotes & Mappings: CC0 1.0 Universal (Public Domain Dedication)
 
-To the extent possible under law, KanoonHQ has waived all copyright and related or neighboring rights to the statutory text, bare acts, sections, legislative amendment footnotes, and transition crosswalk mappings contained in this repository.
+To the extent possible under law, KanoonHQ has waived all copyright and related or neighboring rights it holds in the statutory text, bare acts, sections, legislative amendment footnotes, and transition crosswalk mappings contained in this repository, including its structuring, metadata, identifiers and annotations.
 
 This work is published from: **India**.
 
 ### Statutory Exemption under Indian Law
-Under **Section 52(1)(q) of the Indian Copyright Act, 1957**, the reproduction or publication of:
-- (i) any matter which has been published in any Official Gazette;
-- (ii) any Act of a Legislature;
-- (iii) any report of any committee, commission, council, board or other like body appointed by the Government;
-- (iv) any judgment, order or decree of a court, tribunal or other judicial authority;
-**does not constitute an infringement of copyright**.
+Under **Section 52(1)(q) of the Indian Copyright Act, 1957**, the following acts do not constitute an infringement of copyright — the reproduction or publication of:
+- (i) any matter which has been published in any Official Gazette, **except an Act of a Legislature**;
+- (ii) any Act of a Legislature, **subject to the condition that such Act is reproduced or published together with any commentary thereon or any other original matter**;
+- (iii) the report of any committee, commission, council, board or other like body appointed by the Government, if such report has been laid on the Table of the Legislature, unless its reproduction or publication is prohibited by the Government;
+- (iv) any judgment or order of a court, tribunal or other judicial authority, unless its reproduction or publication is prohibited by the court, tribunal or other judicial authority.
 
-The raw statutory law belongs unconditionally to the public domain.
+Statutory text in this repository is reproduced in reliance on these provisions, together with original matter (metadata, structure, footnote parsing and mappings). This summary is not legal advice; see `PROCUREMENT_PLAN.md` §9 for the open licensing review.
 
 For the full legal code of CC0 1.0 Universal:
 https://creativecommons.org/publicdomain/zero/1.0/legalcode

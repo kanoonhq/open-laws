@@ -34,9 +34,11 @@ configs:
 
 # Open Laws India (`kanoonhq/open-laws`)
 
-The complete, open-source, canonical dataset of Indian statutory legislation, maintained by [KanoonHQ](https://kanoonhq.in).
+An open, machine-readable corpus of Indian Central legislation, maintained by [KanoonHQ](https://kanoonhq.in), and growing towards the complete, point-in-time statutory corpus of India (see [Roadmap](#roadmap)).
 
 This dataset provides structured, versioned, machine-readable bare acts, sections, amendment footnotes, and criminal law transition mappings (IPC ↔ BNS, CrPC ↔ BNSS, Evidence Act ↔ BSA).
+
+> **Not legal advice.** This is a machine-readable compilation of current text. Verify provisions against the Official Gazette before relying on them.
 
 ## Dataset Summary
 
@@ -45,6 +47,7 @@ This dataset provides structured, versioned, machine-readable bare acts, section
 - **Total Sections/Provisions**: 36,895
 - **Statutory Amendment Footnotes**: 28,656 (22,490 with explicit `w.e.f.` commencement dates)
 - **Criminal Transition Mappings**: 107 key provisions (IPC→BNS, CrPC→BNSS, IEA→BSA)
+- **Coverage**: Central Acts only, current text only. Not yet included: Central Acts enacted after the 2023 criminal codes (2023–2026), the Constitution of India, State Acts, subordinate legislation, and historical versions of sections.
 - **License**: [CC0 1.0 Universal (Public Domain Dedication)](https://creativecommons.org/publicdomain/zero/1.0/)
 
 ---
@@ -100,20 +103,30 @@ print(f"Loaded {len(df)} sections across {df['act_id'].nunique()} acts.")
 ## Known Limitations
 
 - Text of the Bharatiya Nyaya Sanhita, Bharatiya Nagarik Suraksha Sanhita and Bharatiya Sakshya Adhiniyam (2023) is parsed from the Gazette of India PDFs; their Schedules are not included.
-- `category` is inferred from keywords in the title.
+- Of the 2023 Central Acts, only the BNS, BNSS and BSA are included; no Acts from 2024–2026 are present yet.
+- `category` is inferred from keywords in the title; 697 of 861 Acts fall back to `general`.
+- Repeal status is a boolean (`is_repealed`, `repealed_by`) without repeal or commencement dates or savings clauses.
+- Footnotes are anchored to India Code page numbers (`page_or_anchor`, e.g. `Page 18`), not to sections.
+- Sections hold the current consolidated text only; wording as it stood on earlier dates is not yet available.
 - The crosswalk covers key provisions only; it is not the full official correspondence table.
+
+---
+
+## Roadmap
+
+[`PROCUREMENT_PLAN.md`](PROCUREMENT_PLAN.md) sets out the expansion: refreshing Central Acts to 2026 and adding the Constitution, a point-in-time layer (amendment events, historical section versions, commencement notifications, court rulings affecting validity), State Acts and state amendments, subordinate legislation, and per-record provenance.
 
 ---
 
 ## Legal & Copyright Status
 
-Under **Section 52(1)(q) of the Indian Copyright Act, 1957**, the reproduction or publication of:
-- Any Act of a Legislature;
-- Any matter published in the Official Gazette;
-- Any judicial judgment or court order;
-**does not constitute infringement of copyright**.
+Under **Section 52(1)(q) of the Indian Copyright Act, 1957**, it is not an infringement of copyright to reproduce or publish:
+- (i) any matter published in an Official Gazette, **except an Act of a Legislature**;
+- (ii) an Act of a Legislature, **provided it is reproduced together with commentary or other original matter**;
+- (iii) reports of government-appointed committees and commissions laid on the Table of the Legislature, unless prohibited;
+- (iv) judgments and orders of courts, tribunals and other judicial authorities, unless prohibited.
 
-The statutory text and public domain metadata are dedicated to the public domain under **CC0 1.0 Universal**. The packaging code and schemas are licensed under the **MIT License**.
+Statutory text here is reproduced in reliance on these provisions, alongside original matter (metadata, structure, parsed footnotes, mappings). KanoonHQ's own contributions are dedicated to the public domain under **CC0 1.0 Universal**; the packaging code and schemas are licensed under the **MIT License**. See [`LICENSE`](LICENSE) and [`PROCUREMENT_PLAN.md` §9](PROCUREMENT_PLAN.md#9-licensing-note-to-be-reviewed-before-v020). This is not legal advice.
 
 ---
 
