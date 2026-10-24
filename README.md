@@ -1,7 +1,6 @@
 ---
 language:
 - en
-- hi
 license: cc0-1.0
 task_categories:
 - text-retrieval
@@ -18,36 +17,19 @@ tags:
 - bsa
 - ipc
 - crpc
-- akoma-ntoso
 size_categories:
 - 10K<n<100K
 pretty_name: "Open Laws India — Canonical Statutory Corpus"
-dataset_info:
-  features:
-  - name: id
-    dtype: string
-  - name: act_id
-    dtype: string
-  - name: section_number
-    dtype: string
-  - name: slug
-    dtype: string
-  - name: structural_unit
-    dtype: string
-  - name: heading
-    dtype: string
-  - name: full_text
-    dtype: string
-  - name: chapter_id
-    dtype: string
-  - name: chapter_name
-    dtype: string
-  - name: language
-    dtype: string
-  splits:
-  - name: train
-    num_bytes: 35000000
-    num_examples: 35836
+configs:
+- config_name: sections
+  data_files: indian_central_act_sections.parquet
+  default: true
+- config_name: acts
+  data_files: indian_central_acts.parquet
+- config_name: footnotes
+  data_files: central_act_footnotes.parquet
+- config_name: mappings
+  data_files: criminal_law_mappings.parquet
 ---
 
 # Open Laws India (`kanoonhq/open-laws`)
@@ -58,23 +40,27 @@ This dataset provides structured, versioned, machine-readable bare acts, section
 
 ## Dataset Summary
 
-- **Total Acts**: 861 Central Acts (1855–2024)
-- **Total Sections/Provisions**: 35,836
-- **Statutory Amendment Footnotes**: 28,653 (22,490 with explicit `w.e.f.` commencement dates)
-- **Criminal Transition Mappings**: 107 (IPC↔BNS, CrPC↔BNSS, IEA↔BSA)
+- **Version**: v0.1.1
+- **Total Acts**: 861 Central Acts (1838–2023)
+- **Total Sections/Provisions**: 36,895
+- **Statutory Amendment Footnotes**: 28,656 (22,490 with explicit `w.e.f.` commencement dates)
+- **Criminal Transition Mappings**: 107 key provisions (IPC→BNS, CrPC→BNSS, IEA→BSA)
 - **License**: [CC0 1.0 Universal (Public Domain Dedication)](https://creativecommons.org/publicdomain/zero/1.0/)
 
 ---
 
 ## File Structure
 
-| File | Format | Description |
+| File | Config | Description |
 | :--- | :--- | :--- |
-| `indian_central_acts.parquet` | Apache Parquet (zstd) | Metadata for all 861 Central Acts (title, act ID, enactment date, category, status). |
-| `indian_central_act_sections.parquet` | Apache Parquet (zstd) | All 35,836 sections with clean text, chapter hierarchy, and canonical slugs. |
-| `central_act_footnotes.parquet` | Apache Parquet (zstd) | 28,653 statutory amendment footnotes with parsed Amending Acts and `w.e.f.` dates. |
-| `criminal_law_mappings.parquet` | Apache Parquet (zstd) | Transition crosswalk mapping IPC sections to BNS 2023, and CrPC to BNSS 2023. |
-| `indian_central_acts_complete.jsonl.gz` | Compressed JSON Lines | Hierarchical complete archive (each line is an Act with nested sections and footnotes). |
+| `indian_central_acts.parquet` | `acts` | One row per Act: title, act number, enactment date as printed (raw text, e.g. `[6th October, 1860.]`), keyword-inferred category, repeal status (`is_repealed`, `repealed_by`). |
+| `indian_central_act_sections.parquet` | `sections` | All 36,895 sections with clean text, chapter hierarchy, and canonical slugs. |
+| `central_act_footnotes.parquet` | `footnotes` | 28,656 statutory amendment footnotes with parsed Amending Acts and `w.e.f.` dates. |
+| `criminal_law_mappings.parquet` | `mappings` | Curated crosswalk of key provisions: IPC→BNS 2023, CrPC→BNSS 2023 and Indian Evidence Act→BSA 2023. `old_section` is null for provisions new in the 2023 codes; `new_section` is null for provisions with no successor. |
+| `indian_central_acts_complete.jsonl.gz` | — | Hierarchical complete archive (each line is an Act with nested sections and footnotes). |
+| `manifest.json` | — | Row counts, sizes and SHA-256 checksums for every file. |
+
+Parquet files are zstd-compressed. On the Hugging Face Hub they sit at the repository root; in the GitHub repository they live under `data/`.
 
 ---
 
@@ -84,30 +70,38 @@ This dataset provides structured, versioned, machine-readable bare acts, section
 ```python
 from datasets import load_dataset
 
-# Load all sections
-sections = load_dataset("kanoonhq/open-laws", data_files="indian_central_act_sections.parquet", split="train")
-print(sections[0])
+sections = load_dataset("kanoonhq/open-laws", "sections", split="train")
+mappings = load_dataset("kanoonhq/open-laws", "mappings", split="train")
 
-# Search for murder provision in BNS
-bns_murder = sections.filter(lambda x: x["act_id"] == "A2023-45" and "murder" in (x["heading"] or "").lower())
+# Punishment for murder in the Bharatiya Nyaya Sanhita (BNS section 103)
+bns_murder = sections.filter(
+    lambda x: x["act_id"] == "A2023-45" and x["heading"] == "Punishment for murder."
+)
 print(bns_murder[0]["section_number"], bns_murder[0]["heading"])
 ```
 
-### 2. DuckDB (Direct SQL over HTTP or local)
+### 2. DuckDB (SQL over the Hub, no download)
 ```sql
--- Query directly without downloading whole files
 SELECT section_number, heading, full_text
-FROM 'indian_central_act_sections.parquet'
+FROM 'hf://datasets/kanoonhq/open-laws/indian_central_act_sections.parquet'
 WHERE act_id = 'A1860-45' AND section_number = 'Section 302.';
 ```
 
-### 3. Pandas
+### 3. Pandas (from a clone of the GitHub repository)
 ```python
 import pandas as pd
 
-df = pd.read_parquet("indian_central_act_sections.parquet")
+df = pd.read_parquet("data/indian_central_act_sections.parquet")
 print(f"Loaded {len(df)} sections across {df['act_id'].nunique()} acts.")
 ```
+
+---
+
+## Known Limitations
+
+- Text of the Bharatiya Nyaya Sanhita, Bharatiya Nagarik Suraksha Sanhita and Bharatiya Sakshya Adhiniyam (2023) is parsed from the Gazette of India PDFs; their Schedules are not included.
+- `category` is inferred from keywords in the title.
+- The crosswalk covers key provisions only; it is not the full official correspondence table.
 
 ---
 
@@ -129,9 +123,9 @@ The statutory text and public domain metadata are dedicated to the public domain
 @dataset{kanoonhq_open_laws_2026,
   author       = {KanoonHQ Team},
   title        = {Open Laws India: Canonical Machine-Readable Indian Statutory Corpus},
+  version      = {v0.1.1},
   year         = {2026},
   publisher    = {Hugging Face & GitHub},
-  url          = {https://github.com/kanoonhq/open-laws},
-  doi          = {10.5281/zenodo.kanoonhq.open-laws}
+  url          = {https://github.com/kanoonhq/open-laws}
 }
 ```

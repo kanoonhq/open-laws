@@ -6,23 +6,41 @@
   "required": ["old_act_id", "old_section", "new_act_id", "new_section", "mapping_type"],
   "properties": {
     "old_act_id": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^A[0-9]{4}-[0-9]+$"
     },
     "old_section": {
-      "type": "string"
+      "type": ["string", "null"],
+      "description": "Null for a provision new in the 2023 code (mapping_type new_provision)"
     },
     "new_act_id": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^A[0-9]{4}-[0-9]+$"
     },
     "new_section": {
-      "type": "string"
+      "type": ["string", "null"],
+      "description": "Null for a provision with no successor (mapping_type repealed)"
     },
     "mapping_type": {
       "type": "string",
-      "enum": ["identical", "modified", "omitted", "new_provision"]
+      "enum": ["direct", "split", "merged", "modified", "new_provision", "repealed"]
     },
     "notes": {
-      "type": "string"
+      "type": ["string", "null"]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"mapping_type": {"const": "new_provision"}}},
+      "then": {"properties": {"old_section": {"type": "null"}, "new_section": {"type": "string"}}}
+    },
+    {
+      "if": {"properties": {"mapping_type": {"const": "repealed"}}},
+      "then": {"properties": {"old_section": {"type": "string"}, "new_section": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"mapping_type": {"enum": ["direct", "split", "merged", "modified"]}}},
+      "then": {"properties": {"old_section": {"type": "string"}, "new_section": {"type": "string"}}}
+    }
+  ]
 }
