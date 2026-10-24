@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Section",
+  "description": "Schema for an individual Section or Article in the Open Laws India corpus",
+  "type": "object",
+  "required": ["id", "act_id", "section_number", "slug", "full_text"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Deterministic identifier e.g. A1860-45:302"
+    },
+    "act_id": {
+      "type": "string",
+      "description": "Parent Act canonical ID e.g. A1860-45"
+    },
+    "section_number": {
+      "type": "string",
+      "description": "Official section label e.g. Section 302."
+    },
+    "slug": {
+      "type": "string",
+      "description": "Clean URL segment matching Migration 179 e.g. 302"
+    },
+    "structural_unit": {
+      "type": "string",
+      "enum": ["section", "article", "order", "rule", "schedule", "schedule_entry", "form"],
+      "default": "section"
+    },
+    "heading": {
+      "type": ["string", "null"],
+      "description": "Marginal heading / section title"
+    },
+    "full_text": {
+      "type": "string",
+      "description": "Complete flattened statutory text of all sub-sections and clauses"
+    },
+    "chapter_id": {
+      "type": ["string", "null"],
+      "description": "Chapter number e.g. CHAPTER XVI"
+    },
+    "chapter_name": {
+      "type": ["string", "null"],
+      "description": "Chapter name e.g. OF OFFENCES AFFECTING THE HUMAN BODY"
+    },
+    "language": {
+      "type": "string",
+      "default": "en"
+    }
+  }
+}

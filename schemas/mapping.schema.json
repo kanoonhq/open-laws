@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CriminalLawMapping",
+  "description": "Schema for IPC↔BNS, CrPC↔BNSS, and IEA↔BSA transition crosswalk mappings",
+  "type": "object",
+  "required": ["old_act_id", "old_section", "new_act_id", "new_section", "mapping_type"],
+  "properties": {
+    "old_act_id": {
+      "type": "string"
+    },
+    "old_section": {
+      "type": "string"
+    },
+    "new_act_id": {
+      "type": "string"
+    },
+    "new_section": {
+      "type": "string"
+    },
+    "mapping_type": {
+      "type": "string",
+      "enum": ["identical", "modified", "omitted", "new_provision"]
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

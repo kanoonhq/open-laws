@@ -1,0 +1,65 @@
+name: Sync Dataset to Hugging Face Hub
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  validate-and-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install pyarrow huggingface_hub
+
+      - name: Verify Manifest & Checksums
+        run: |
+          python -c "
+          import hashlib, json
+          with open('data/manifest.json') as f:
+              m = json.load(f)
+          for fname, meta in m.get('files', {}).items():
+              sha = hashlib.sha256(open('data/' + fname, 'rb').read()).hexdigest()
+              assert sha == meta['sha256'], f'Mismatch for {fname}'
+              print(f'OK: {fname}')
+          "
+
+      - name: Push to Hugging Face Hub
+        if: env.HF_TOKEN != ''
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -c "
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ['HF_TOKEN'])
+          repo_id = 'kanoonhq/open-laws'
+          api.create_repo(repo_id=repo_id, repo_type='dataset', exist_ok=True)
+          
+          # Upload dataset card
+          api.upload_file(
+              path_or_fileobj='README.md',
+              path_in_repo='README.md',
+              repo_id=repo_id,
+              repo_type='dataset'
+          )
+          
+          # Upload Parquet files and complete JSONL
+          api.upload_folder(
+              folder_path='data',
+              repo_id=repo_id,
+              repo_type='dataset'
+          )
+          print('Successfully synced to https://huggingface.co/datasets/kanoonhq/open-laws')
+          "

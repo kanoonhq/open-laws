@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Act",
+  "description": "Schema for an Act in the Open Laws India corpus",
+  "type": "object",
+  "required": ["act_id", "title", "jurisdiction", "structure"],
+  "properties": {
+    "act_id": {
+      "type": "string",
+      "pattern": "^A[0-9]{4}-[0-9]+$",
+      "description": "Canonical Act ID e.g. A1860-45"
+    },
+    "title": {
+      "type": "string",
+      "description": "Full formal title of the Act"
+    },
+    "act_number": {
+      "type": "string",
+      "description": "Official Act number e.g. ACT NO. 45 OF 1860"
+    },
+    "enactment_date": {
+      "type": "string",
+      "description": "Date of enactment as published in the preamble"
+    },
+    "jurisdiction": {
+      "type": "string",
+      "default": "IN-CENTRAL",
+      "description": "Jurisdiction code (IN-CENTRAL or ISO state code e.g. IN-MH)"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["criminal", "civil", "commercial", "property", "labour", "constitutional", "general"],
+      "description": "Primary legal domain category"
+    },
+    "structure": {
+      "type": "string",
+      "enum": ["sections", "chapters", "parts", "unknown"]
+    },
+    "is_repealed": {
+      "type": "boolean",
+      "default": false
+    },
+    "repealed_by": {
+      "type": ["string", "null"]
+    },
+    "repeal_reason": {
+      "type": ["string", "null"]
+    },
+    "chapter_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "section_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "footnote_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_file": {
+      "type": "string"
+    }
+  }
+}

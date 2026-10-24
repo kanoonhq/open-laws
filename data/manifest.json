@@ -1,0 +1,31 @@
+{
+  "total_acts": 861,
+  "total_sections": 35836,
+  "total_footnotes": 28653,
+  "footnotes_with_wef": 22490,
+  "total_mappings": 107,
+  "export_timestamp": "2026-10-24T16:40:43.871600+00:00",
+  "version": "v0.1.0",
+  "files": {
+    "indian_central_acts.parquet": {
+      "size_bytes": 40139,
+      "sha256": "3c47502eb3eebd2e6025c71f8931c344cbdb99db063c1faa0a7b1c3ef281ef82"
+    },
+    "indian_central_act_sections.parquet": {
+      "size_bytes": 9236140,
+      "sha256": "afca9d6189922568dba02c50cc1679a04b13dea71a2c6ae6fd4d6fb07d848e87"
+    },
+    "central_act_footnotes.parquet": {
+      "size_bytes": 843045,
+      "sha256": "7493479b3fd04f0e7579922841603a93d9ccdb1434de95b5f3f03f47dec1e5d9"
+    },
+    "criminal_law_mappings.parquet": {
+      "size_bytes": 4870,
+      "sha256": "d23f9ee5f417e4ace527c09d63ce7f68c0304a87390532b6ae4da7bd3cadb502"
+    },
+    "indian_central_acts_complete.jsonl.gz": {
+      "size_bytes": 10294563,
+      "sha256": "152e4fec70f45e0660f07be7b916414fd0c7c0b1fa8f7af11a9fddb375212c88"
+    }
+  }
+}

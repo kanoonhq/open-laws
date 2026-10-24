@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Footnote",
+  "description": "Schema for a statutory amendment footnote in the Open Laws India corpus",
+  "type": "object",
+  "required": ["id", "act_id", "footnote_number", "raw_text", "amendment_type"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique footnote identifier e.g. A1860-45:Page 18:1"
+    },
+    "act_id": {
+      "type": "string",
+      "description": "Act ID e.g. A1860-45"
+    },
+    "page_or_anchor": {
+      "type": "string",
+      "description": "Page or section reference anchor"
+    },
+    "footnote_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "raw_text": {
+      "type": "string",
+      "description": "Unmodified statutory footnote as published"
+    },
+    "amendment_type": {
+      "type": "string",
+      "enum": ["insertion", "substitution", "omission", "renumbering", "extension", "other"]
+    },
+    "amending_act_citation": {
+      "type": ["string", "null"],
+      "description": "Amending Act citation e.g. Act 21 of 2000"
+    },
+    "amending_year": {
+      "type": ["integer", "null"]
+    },
+    "wef_date": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "ISO commencement date (with effect from)"
+    }
+  }
+}
