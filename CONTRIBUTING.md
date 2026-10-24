@@ -17,8 +17,26 @@ By participating, you agree to uphold a welcoming, respectful, and collaborative
 ```bash
 pip install -r requirements.txt ruff
 python scripts/validate.py   # checksums, row counts, schemas, cross-references
-ruff check scripts/
+pytest                       # build pipeline tests on tests/fixtures/
+ruff check scripts/ tests/
 ```
+
+---
+
+## Building the Dataset
+
+The v0.2.0 tables are a deterministic enrichment of the frozen v0.1.1 release (the `data/` tree at commit `7222593`). The build reads those inputs and never its own output:
+
+```bash
+python scripts/extract_inputs.py    # git archive 7222593 data/ -> .cache/inputs/v0.1.1/ (gitignored)
+python scripts/build_dataset.py --input-dir .cache/inputs/v0.1.1 --output-dir data \
+    --timestamp 2026-01-01T00:00:00+00:00
+python scripts/validate.py
+```
+
+Given the same inputs and `--timestamp`, the output is byte-identical. The enrichment stages live in `scripts/enrich/` (`acts.py`, `footnotes.py`, `mappings.py`): each is a pure function over row lists that declares its added columns in `FIELDS` and returns `(rows, coverage)`, which the build merges into `manifest.json` under `coverage`.
+
+The test fixtures in `tests/fixtures/v0.1.1/` are slices of real v0.1.1 rows; to extend them, edit the selection in `tests/fixtures/make_fixtures.py` and rerun it after `extract_inputs.py`.
 
 ---
 
@@ -61,15 +79,16 @@ If an Act is missing:
 - State whether it is a Central or State Act, the Act number/year, and link the India Code DSpace handle or Gazette notification.
 
 ### 3. Submitting Code or Documentation via Pull Request
-- Data files under `data/` are sealed by checksums in `data/manifest.json`, and the build script that regenerates them is not yet in the repository. Until it is, **data corrections go through issues** and maintainers apply them; pull requests should change code, schemas or documentation only.
+- Data files under `data/` are sealed by checksums in `data/manifest.json` and are regenerated only by the build (see [Building the Dataset](#building-the-dataset)) at release time. **Data corrections go through issues** and maintainers apply them; pull requests should change code, schemas, tests or documentation only.
 - All contributions must pass the local integrity validator:
   ```bash
   python scripts/validate.py
   ```
 - Any new or modified schemas must remain valid JSON Schema (Draft 2020-12), and records must conform to the corresponding schema in `schemas/`.
-- Python code must pass Ruff linting:
+- Python code must pass the tests and Ruff linting:
   ```bash
-  ruff check scripts/
+  pytest
+  ruff check scripts/ tests/
   ```
 
 ---

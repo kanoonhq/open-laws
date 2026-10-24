@@ -24,11 +24,15 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyarrow ruff jsonschema
+          pip install -r requirements.txt ruff
 
       - name: Code Quality & Linting
         run: |
-          ruff check scripts/
+          ruff check scripts/ tests/
+
+      - name: Build Pipeline Tests
+        run: |
+          pytest
 
       - name: Validate JSON Schemas
         run: |
