@@ -8,7 +8,17 @@
     "act_id": {
       "type": "string",
       "pattern": "^A[0-9]{4}-[0-9]+$",
-      "description": "Canonical Act ID e.g. A1860-45"
+      "description": "Legacy canonical Act ID e.g. A1860-45 (kept as an alias of work_id)"
+    },
+    "work_id": {
+      "type": "string",
+      "pattern": "^in-[a-z]+/[a-z_]+/[0-9]{4}/[0-9A-Za-z-]+$",
+      "description": "Jurisdiction-qualified work ID {jurisdiction}/{doc_type}/{year}/{number} e.g. in-central/act/1860/45 (no zero-padding)"
+    },
+    "doc_type": {
+      "type": "string",
+      "enum": ["act", "ordinance", "regulation", "presidents_act", "rule", "regulation_subordinate", "notification", "order", "constitution", "constitution_amendment"],
+      "description": "Instrument type (PROCUREMENT_PLAN §2.1)"
     },
     "title": {
       "type": "string",

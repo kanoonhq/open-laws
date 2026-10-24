@@ -1,0 +1,18 @@
+[
+ {
+  "old_act_id": "A1860-45",
+  "old_section": "Section 302.",
+  "new_act_id": "A2023-45",
+  "new_section": "Section 103.",
+  "mapping_type": "direct",
+  "notes": "Punishment for murder"
+ },
+ {
+  "old_act_id": "A1872-1",
+  "old_section": "Section 8.",
+  "new_act_id": "A2023-47",
+  "new_section": "Section 6.",
+  "mapping_type": "direct",
+  "notes": "Motive, preparation and conduct"
+ }
+]
