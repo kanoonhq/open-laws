@@ -27,6 +27,16 @@
     },
     "notes": {
       "type": ["string", "null"]
+    },
+    "effective_from": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "ISO date the new code commenced (2024-07-01 for BNS, BNSS and BSA)"
+    },
+    "applies_by": {
+      "type": "string",
+      "enum": ["offence_date", "proceeding_date"],
+      "description": "offence_date for BNS (substantive law, Art. 20(1)); proceeding_date for BNSS (s. 531) and BSA (s. 170)"
     }
   },
   "allOf": [

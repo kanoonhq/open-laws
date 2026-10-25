@@ -40,6 +40,15 @@
       "type": ["string", "null"],
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
       "description": "ISO commencement date (with effect from)"
+    },
+    "section_slug": {
+      "type": ["string", "null"],
+      "description": "Slug of the section of the same Act the footnote belongs to; null when linkage_method is act_level"
+    },
+    "linkage_method": {
+      "type": "string",
+      "enum": ["inline_marker", "page_order", "act_level"],
+      "description": "How section_slug was derived: a matching inline marker, page order between two links to one section, or not linked (Act level)"
     }
   }
 }

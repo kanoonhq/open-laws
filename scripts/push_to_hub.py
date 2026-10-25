@@ -1,7 +1,7 @@
 """
 Open Laws India — Hugging Face Hub Sync
 =======================================
-Uploads README.md (the dataset card), data/manifest.json and exactly the data
+Uploads README.md (the dataset card), CHANGELOG.md, data/manifest.json and exactly the data
 files listed in the manifest to the Hugging Face dataset repo, in one commit.
 
 Usage:
@@ -30,7 +30,9 @@ def main() -> int:
 
     manifest = json.loads((DATA_DIR / "manifest.json").read_text(encoding="utf-8"))
     # Data files sit at the Hub repo root, matching the dataset card's configs
-    uploads = {"README.md": ROOT / "README.md", "manifest.json": DATA_DIR / "manifest.json"}
+    # The dataset card links CHANGELOG.md, so it ships alongside README.md.
+    uploads = {"README.md": ROOT / "README.md", "CHANGELOG.md": ROOT / "CHANGELOG.md",
+               "manifest.json": DATA_DIR / "manifest.json"}
     uploads |= {name: DATA_DIR / name for name in manifest["files"]}
 
     for path_in_repo, local in uploads.items():
