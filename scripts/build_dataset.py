@@ -1,5 +1,5 @@
 """
-Open Laws India — v0.2.0 Dataset Build
+Open Laws India — v0.3.0 Dataset Build
 ======================================
 Reads the frozen v0.1.1 tables from --input-dir, runs the enrichment stages
 (scripts/enrich/) and writes the 4 parquet tables, one parquet file per derived
@@ -37,7 +37,7 @@ from enrich import mappings as mappings_stage
 from enrich.registry import DERIVED_TABLES
 from table_files import ACTS, ARCHIVE, FOOTNOTES, MAPPINGS, SECTIONS
 
-VERSION = "v0.2.0"
+VERSION = "v0.3.0"
 
 STRING, INT32, BOOL = pa.string(), pa.int32(), pa.bool_()
 # The v0.1.1 column layout; stages append their FIELDS after these.
@@ -183,7 +183,7 @@ def default_timestamp(input_dir: Path) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build the Open Laws India v0.2.0 dataset.")
+    parser = argparse.ArgumentParser(description="Build the Open Laws India v0.3.0 dataset.")
     parser.add_argument("--input-dir", type=Path, required=True, help="v0.1.1 data dir")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--timestamp", help="ISO 8601 export_timestamp (fixes the output bytes)")

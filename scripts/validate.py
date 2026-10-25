@@ -9,7 +9,16 @@ v0.2.0 columns and manifest keys and checks their invariants (unique work_id,
 footnote section_slug links, calendar dates, repeal_date, manifest coverage); older
 versions skip them, so v0.1.1 data still validates. Each derived table
 (scripts/enrich/registry.py) listed in the manifest is checked against its
-JSON schema, and its coverage is recomputed.
+JSON schema, and its coverage is recomputed with its stage's coverage().
+A v0.3.0 or later manifest must list every derived table, and the time layer
+is checked (PROCUREMENT_PLAN §7.3, §7.6): each section's versions are
+contiguous (valid_from <= valid_to, no overlap or gap, the last open-ended),
+text is null exactly when unavailable, each later slice is opened by a known
+event (unless it is where the wording first becomes known), each amendment event has a
+footnote or is a repeal, no slice is in force after a strike-down or during a
+stay (until stay_lifted), and every act_id, central_act_id, section,
+jurisdiction code, succession link and ISO alias resolves. v0.2.0 data skips
+these checks.
 
 Usage:
   pip install -r requirements.txt
@@ -23,14 +32,21 @@ import gzip
 import hashlib
 import json
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
 import pyarrow.parquet as pq
+from enrich import Rows
 from enrich import acts as acts_stage
+from enrich import events as events_stage
 from enrich import footnotes as footnotes_stage
+from enrich import judicial_events as judicial_events_stage
+from enrich import jurisdictions as jurisdictions_stage
 from enrich import mappings as mappings_stage
+from enrich import section_versions as section_versions_stage
+from enrich import state_amendments as state_amendments_stage
 from enrich.dates import calendar_date
 from enrich.registry import DERIVED_TABLES
 from jsonschema import Draft202012Validator
@@ -64,6 +80,8 @@ V020_COLUMNS = {
     MAPPINGS: [f.name for f in mappings_stage.FIELDS],
 }
 V020_MANIFEST_KEYS = ("coverage",)
+# The time layer (every table in DERIVED_TABLES) is required from v0.3.0.
+V030 = (0, 3, 0)
 MAX_ERRORS_PER_CHECK = 5
 # Parquet file -> (row label column, date columns), checked for v0.2.0 data.
 DATE_COLUMNS = {
@@ -112,9 +130,25 @@ def check_files(manifest: dict[str, Any], data_dir: Path) -> list[str]:
     return errors
 
 
+def version_of(manifest: dict[str, Any]) -> tuple[int, ...]:
+    """The manifest version as a tuple ("v0.2.0" -> (0, 2, 0))."""
+    return tuple(int(part) for part in manifest["version"].removeprefix("v").split("."))
+
+
 def is_v020(manifest: dict[str, Any]) -> bool:
-    """True when the manifest version is v0.2.0 or later ("v0.2.0" -> (0, 2, 0))."""
-    return tuple(int(part) for part in manifest["version"].removeprefix("v").split(".")) >= V020
+    """True when the manifest version is v0.2.0 or later."""
+    return version_of(manifest) >= V020
+
+
+def is_v030(manifest: dict[str, Any]) -> bool:
+    """True when the manifest version is v0.3.0 or later: the time layer is required."""
+    return version_of(manifest) >= V030
+
+
+def check_v030_layout(manifest: dict[str, Any]) -> list[str]:
+    """A v0.3.0 manifest promises every derived table."""
+    return [f"manifest.json is missing v0.3.0 file {d.file}"
+            for d in DERIVED_TABLES if d.file not in manifest["files"]]
 
 
 def check_v020_layout(manifest: dict[str, Any], columns: dict[str, list[str]]) -> list[str]:
@@ -261,6 +295,175 @@ def footnote_link_errors(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
     return bad
 
 
+# --- v0.3.0 time layer (PROCUREMENT_PLAN §7.3, §7.6) -----------------------------
+
+Chains = dict[tuple[str, str, str], Rows]
+
+
+def version_chains(versions: Rows) -> Chains:
+    """Each provision's slices: (act_id, slug, language) -> rows in version_number order."""
+    chains: Chains = defaultdict(list)
+    for v in versions:
+        chains[(v["act_id"], v["slug"], v["language"])].append(v)
+    return {key: sorted(rows, key=lambda v: v["version_number"]) for key, rows in chains.items()}
+
+
+def interval_errors(chains: Chains) -> list[str]:
+    """valid_from <= valid_to, versions numbered 1..n, each ending where the
+    next starts (no overlap, no gap), and the last open-ended."""
+    bad = []
+    for key, chain in chains.items():
+        where = " ".join(key)
+        numbers = [v["version_number"] for v in chain]
+        if numbers != list(range(1, len(chain) + 1)):
+            bad.append(f"{where}: version numbers {numbers} are not 1..{len(chain)}")
+        for v in chain:
+            if v["valid_to"] is not None and v["valid_from"] > v["valid_to"]:
+                bad.append(f"{where}: version {v['version_number']} valid_from {v['valid_from']} "
+                           f"is after valid_to {v['valid_to']}")
+        for a, b in pairwise(chain):
+            n, start = a["version_number"], b["valid_from"]
+            if a["valid_to"] is None:
+                bad.append(f"{where}: version {n} is open-ended but version {n + 1} starts {start}")
+            elif a["valid_to"] > start:
+                bad.append(f"{where}: version {n} ends {a['valid_to']} after version {n + 1} starts {start}")
+            elif a["valid_to"] < start:
+                bad.append(f"{where}: gap from {a['valid_to']} to {start} before version {n + 1}")
+        if chain[-1]["valid_to"] is not None:
+            bad.append(f"{where}: the last version ends {chain[-1]['valid_to']}, not open-ended")
+    return bad
+
+
+def text_status_errors(versions: Rows) -> list[str]:
+    """text_status unavailable exactly when full_text is null: wording is never guessed."""
+    return [f"{v['id']}: text_status {v['text_status']} but full_text is "
+            f"{'set' if v['full_text'] is not None else 'null'}"
+            for v in versions if (v["text_status"] == "unavailable") != (v["full_text"] is None)]
+
+
+def event_link_errors(tables: dict[str, Rows], chains: Chains) -> list[str]:
+    """Every slice after the first is opened by an event, except where the
+    wording first becomes assertable (an unavailable slice, e.g. an `unknown`
+    span, followed by text: that boundary is the date the text is known to
+    stand from, not a change); every listed event and footnote exists; and
+    every amendment event has a source (a footnote, or the Act's repeal)."""
+    footnote_ids = {f["id"] for f in tables[FOOTNOTES]}
+    event_ids = {e["id"] for e in tables[events_stage.FILE]}
+    event_ids |= {j["id"] for j in tables[judicial_events_stage.FILE]}
+    bad = []
+    for chain in chains.values():
+        for previous, v in pairwise(chain):
+            first_known = previous["text_status"] == "unavailable" and v["text_status"] != "unavailable"
+            if not v["amendment_event_ids"] and not first_known:
+                bad.append(f"{v['id']}: version {v['version_number']} is opened by no event")
+        for v in chain:
+            bad += [f"{v['id']}: event {e} is not an amendment or judicial event"
+                    for e in v["amendment_event_ids"] if e not in event_ids]
+            bad += [f"{v['id']}: footnote {f} is not a footnote"
+                    for f in v["footnote_references"] if f not in footnote_ids]
+    for e in tables[events_stage.FILE]:
+        if not e["footnote_ids"] and e["operation"] != "repeal":
+            bad.append(f"{e['id']}: {e['operation']} event has no footnote")
+        bad += [f"{e['id']}: footnote {f} is not a footnote" for f in e["footnote_ids"] if f not in footnote_ids]
+    return bad
+
+
+# A ruling's window may hold only these statuses (section_versions docstring):
+# struck_down is final (only a repeal follows), and a stay lasts until a
+# stay_lifted ruling, unless a strike-down or repeal ends it first.
+AFTER_RULING = {"struck_down": ("struck_down", "repealed"), "stayed": ("stayed", "struck_down", "repealed")}
+
+
+def ruling_errors(tables: dict[str, Rows], chains: Chains) -> list[str]:
+    """No slice from a strike-down on, or within a stay (its decision_date up
+    to the next stay_lifted), is in force: every slice there holds the
+    ruling's status, or a later final one."""
+    rulings: dict[tuple[str, str], Rows] = defaultdict(list)
+    for j in tables[judicial_events_stage.FILE]:
+        rulings[(j["act_id"], j["provision_path"])].append(j)
+    bad = []
+    for (act_id, slug, language), chain in chains.items():
+        provision = sorted(rulings.get((act_id, slug), []), key=lambda j: j["decision_date"])
+        for j in provision:
+            if j["effect"] not in AFTER_RULING:
+                continue
+            start = j["decision_date"]
+            end = next((k["decision_date"] for k in provision if j["effect"] == "stayed"
+                        and k["effect"] == "stay_lifted" and k["decision_date"] > start), None)
+            for v in chain:
+                overlaps = (v["valid_to"] is None or v["valid_to"] > start) and \
+                    (end is None or v["valid_from"] < end)
+                if overlaps and v["status"] not in AFTER_RULING[j["effect"]]:
+                    bad.append(f"{act_id} {slug} {language}: version {v['version_number']} is "
+                               f"{v['status']} after the {j['effect']} ruling {j['id']}")
+                elif overlaps and v["valid_from"] < start:
+                    bad.append(f"{act_id} {slug} {language}: version {v['version_number']} is "
+                               f"{v['status']} from {v['valid_from']}, before the ruling {j['id']}")
+    return bad
+
+
+def time_reference_errors(tables: dict[str, Rows]) -> list[str]:
+    """Every act_id, central_act_id, section and jurisdiction code the time
+    layer names resolves (an ISO alias is not a code: it resolves to one)."""
+    act_ids = {a["act_id"] for a in tables[ACTS]}
+    slugs = {(s["act_id"], s["slug"]) for s in tables[SECTIONS]}
+    section_ids = {s["id"] for s in tables[SECTIONS]}
+    codes = {j["code"] for j in tables[jurisdictions_stage.FILE]}
+    bad = []
+
+    def act(row_id: str, column: str, value: str | None) -> None:
+        if value is not None and value not in act_ids:
+            bad.append(f"{row_id}: unknown {column} {value}")
+
+    def section(row_id: str, act_id: str, slug: str) -> None:
+        if act_id in act_ids and (act_id, slug) not in slugs:
+            bad.append(f"{row_id}: {act_id} has no section {slug}")
+
+    def code(row_id: str, column: str, value: str | None) -> None:
+        if value is not None and value not in codes:
+            bad.append(f"{row_id}: {column} {value} is not a jurisdiction code")
+
+    for a in tables[ACTS]:
+        code(a["act_id"], "jurisdiction", a["jurisdiction"])
+    for v in tables[section_versions_stage.FILE]:
+        act(v["id"], "act_id", v["act_id"])
+        act(v["id"], "amended_by_act_id", v["amended_by_act_id"])
+        section(v["id"], v["act_id"], v["slug"])
+    for e in tables[events_stage.FILE]:
+        act(e["id"], "act_id", e["act_id"])
+        act(e["id"], "amending_instrument_id", e["amending_instrument_id"])
+        for slug in e["provisions_affected"]:
+            section(e["id"], e["act_id"], slug)
+    for j in tables[judicial_events_stage.FILE]:
+        act(j["id"], "act_id", j["act_id"])
+    for s in tables[state_amendments_stage.FILE]:
+        act(s["id"], "central_act_id", s["central_act_id"])
+        if s["section_id"] not in section_ids:
+            bad.append(f"{s['id']}: section_id {s['section_id']} is not a section")
+        code(s["id"], "state_jurisdiction", s["state_jurisdiction"])
+    return bad
+
+
+def check_time_layer(tables: dict[str, Rows]) -> list[str]:
+    """The v0.3.0 temporal invariants and cross-references of the derived tables."""
+    versions = tables[section_versions_stage.FILE]
+    chains = version_chains(versions)
+    errors = report("Section versions are contiguous: valid_from <= valid_to, no overlap or gap",
+                    interval_errors(chains))
+    errors += report("text_status is unavailable exactly when full_text is null", text_status_errors(versions))
+    errors += report("Every later section version is opened by a known event, and every event has a source",
+                     event_link_errors(tables, chains))
+    errors += report("No section is in force after a strike-down, or during a stay until stay_lifted",
+                     ruling_errors(tables, chains))
+    errors += report("Time-layer tables reference known Acts, sections and jurisdiction codes",
+                     time_reference_errors(tables))
+    # The stage's own rules: unique codes, each alias resolving to one code,
+    # succession links that resolve and agree with the validity intervals.
+    errors += report("Jurisdiction codes, succession links and ISO aliases resolve",
+                     jurisdictions_stage.consistency_errors(tables[jurisdictions_stage.FILE]))
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate the Open Laws India dataset.")
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
@@ -286,11 +489,13 @@ def main() -> int:
     print(f"Criminal Mappings:  {manifest['total_mappings']:,}")
     print("=" * 60)
 
-    v020 = is_v020(manifest)
+    v020, v030 = is_v020(manifest), is_v030(manifest)
     errors = check_files(manifest, data_dir)
     if not errors and v020:
         errors += check_v020_layout(
             manifest, {name: pq.read_schema(data_dir / name).names for name in TABLES})
+    if not errors and v030:
+        errors += check_v030_layout(manifest)
     if not errors:
         # Derived tables are checked when the manifest lists them (v0.2.0 data has none).
         names = [*TABLES, *(d.file for d in DERIVED_TABLES if d.file in manifest["files"])]
@@ -299,6 +504,8 @@ def main() -> int:
         errors += check_schemas(tables, v020)
         errors += check_references(tables)
         errors += check_invariants(tables, v020)
+        if v030:
+            errors += check_time_layer(tables)
         if v020:
             errors += check_coverage(manifest, tables)
 
