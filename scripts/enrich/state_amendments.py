@@ -25,7 +25,8 @@ into one row per state entry. Section text is left unchanged.
   section 24", "Section 24.—") or opening words ("In sub-section (6) of
   section 24"), else null.
 - effective_date: a `(w.e.f. …)` date in or just after the reference, else null.
-- valid_to: 2024-07-01 for CrPC rows (closed at the BNSS transition), else null.
+- valid_to: the central Act's repeal_date when it is repealed (IPC, CrPC and
+  the Evidence Act: 2024-07-01, the BNS/BNSS/BSA transition), else null.
 - id: {central_act_id}:s{section slug}:{code | unmapped}, -2, -3, ... on collision.
 """
 
@@ -41,11 +42,10 @@ from enrich import Coverage, DerivedTable, Row, Rows
 from enrich import jurisdictions as jurisdictions_stage
 from enrich.dates import MONTHS, iso_date
 from enrich.jurisdictions import code_for_name, normalise_name
-from table_files import SECTIONS
+from table_files import ACTS, SECTIONS
 
 FILE = "state_amendments.parquet"
 TYPES = ("substitution", "insertion", "omission", "proviso")
-CLOSED_AT_TRANSITION = {"A1974-2": "2024-07-01"}  # CrPC -> BNSS
 STRING = pa.string()
 SCHEMA = pa.schema([
     ("id", STRING), ("central_act_id", STRING), ("section_id", STRING), ("section_slug", STRING),
@@ -172,7 +172,8 @@ def entries(text: str, names: re.Pattern[str]) -> list[tuple[str, re.Match[str] 
     return out
 
 
-def rows_for_section(section: Row, jurisdictions: Rows, names: re.Pattern[str]) -> Rows:
+def rows_for_section(section: Row, valid_to: str | None, jurisdictions: Rows,
+                     names: re.Pattern[str]) -> Rows:
     rows = []
     for body, ref, raw in entries(section["full_text"] or "", names):
         text = LEADING_JUNK.sub("", body.strip())
@@ -193,7 +194,7 @@ def rows_for_section(section: Row, jurisdictions: Rows, names: re.Pattern[str]) 
             "amended_text": amended.strip() or None,
             "raw_text": raw,
             "effective_date": effective_date(ref[1], ref[2]) if ref else None,
-            "valid_to": CLOSED_AT_TRANSITION.get(section["act_id"]),
+            "valid_to": valid_to,
             "source_url": None,  # the v0.1.1 corpus records no per-section URL
         }
         for name in state_names or [None]:
@@ -205,10 +206,11 @@ def rows_for_section(section: Row, jurisdictions: Rows, names: re.Pattern[str]) 
 def build(tables: Mapping[str, Rows]) -> Rows:
     jurisdictions = tables[jurisdictions_stage.FILE]
     names = name_pattern(jurisdictions)
+    repealed = {a["act_id"]: a["repeal_date"] for a in tables[ACTS] if a["is_repealed"]}
     used: set[str] = set()
     out: Rows = []
     for section in tables[SECTIONS]:
-        for row in rows_for_section(section, jurisdictions, names):
+        for row in rows_for_section(section, repealed.get(section["act_id"]), jurisdictions, names):
             base = f"{row['central_act_id']}:s{row['section_slug']}:{row['state_jurisdiction'] or 'unmapped'}"
             row_id, n = base, 1
             while row_id in used:

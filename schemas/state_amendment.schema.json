@@ -61,7 +61,7 @@
     "valid_to": {
       "type": ["string", "null"],
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
-      "description": "Date the state amendment ceased to apply: 2024-07-01 for the CrPC (BNSS transition)"
+      "description": "Date the state amendment ceased to apply: the central Act's repeal_date when it is repealed (2024-07-01 for the IPC, CrPC and Evidence Act)"
     },
     "source_url": {
       "type": ["string", "null"],

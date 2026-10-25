@@ -8,6 +8,7 @@ The fixtures add real v0.1.1 section rows, copied verbatim with their Acts
 - CrPC s. 24 (A1974-2:24): six entries under state-name lines, a second
   STATE AMENDMENT header for "Jammu and Kashmir and Ladakh (UTs)", and
   entries that make several kinds of change (kept raw, with a null type).
+- IPC s. 353 (A1860-45:353): a repealed Act's row closes at its repeal_date.
 - CrPC s. 197 (A1974-2:197): a last entry with no [Vide …] reference.
 - RFCTLARR Act ss. 24 and 40 (A2013-30): an added proviso, and w.e.f. dates.
 """
@@ -26,7 +27,10 @@ BLOCKS = Path(__file__).resolve().parent / "fixtures" / "state_amendments" / "bl
 
 def with_blocks(tables: dict[str, Rows]) -> dict[str, Rows]:
     extra = json.loads(BLOCKS.read_text(encoding="utf-8"))
-    return {**tables, "acts": [*tables["acts"], *extra["acts"]],
+    # Sections of Acts already in the base fixtures (the IPC) raise their section_count.
+    acts = [{**a, "section_count": a["section_count"] + sum(s["act_id"] == a["act_id"] for s in extra["sections"])}
+            for a in tables["acts"]]
+    return {**tables, "acts": [*acts, *extra["acts"]],
             "sections": [*tables["sections"], *extra["sections"]]}
 
 
@@ -110,6 +114,14 @@ def test_crpc_rows_close_at_the_bnss_transition(built_blocks: BuildOutput) -> No
     assert {r["valid_to"] for r in crpc_rows(built_blocks)} == {"2024-07-01"}
 
 
+def test_rows_of_any_repealed_act_close_at_its_repeal_date(built_blocks: BuildOutput) -> None:
+    # The IPC was repealed by the BNS w.e.f. 2024-07-01; RFCTLARR is in force.
+    rows = by_id(built_blocks)
+    assert rows["A1860-45:s353:IN-MH"]["valid_to"] == "2024-07-01"
+    assert rows["A1860-45:s353:IN-MH"]["amendment_type"] == "substitution"
+    assert rows["A2013-30:s40:IN-MH"]["valid_to"] is None
+
+
 def test_section_text_is_left_unchanged(built_blocks: BuildOutput) -> None:
     extra = {s["id"]: s for s in json.loads(BLOCKS.read_text(encoding="utf-8"))["sections"]}
     out = {s["id"]: s for s in built_blocks.table("sections") if s["id"] in extra}
@@ -118,7 +130,7 @@ def test_section_text_is_left_unchanged(built_blocks: BuildOutput) -> None:
 
 def test_coverage_reports_parsed_and_raw(built_blocks: BuildOutput) -> None:
     c = built_blocks.manifest()["coverage"]["state_amendments"]
-    assert (c["rows"], c["parsed"], c["raw"], c["sections"]) == (15, 10, 5, 5)
+    assert (c["rows"], c["parsed"], c["raw"], c["sections"]) == (16, 11, 5, 6)
     assert c["without_reference"] == 1
     assert c["unmapped_state_names"] == []
 
