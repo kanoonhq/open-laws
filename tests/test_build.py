@@ -3,10 +3,24 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
-from conftest import ARCHIVE, FIXED_TIMESTAMP, BuildOutput, build_fixtures, corrupt_output, run_validator
+from conftest import (
+    ARCHIVE,
+    BUILD,
+    FIXED_TIMESTAMP,
+    BuildOutput,
+    build_fixtures,
+    corrupt_output,
+    load_fixture_rows,
+    run_validator,
+    write_input_dir,
+)
 
 
 def sha256(path: Path) -> str:
@@ -69,3 +83,35 @@ def test_manifest_reports_v020_totals_and_timestamp(built: BuildOutput) -> None:
     assert (manifest["total_footnotes"], manifest["total_mappings"]) == (22, 2)
     assert manifest["year_range"] == [1860, 2023]
     assert isinstance(manifest["coverage"], dict)
+
+
+def build_without_timestamp(tmp_path: Path, env: dict[str, str],
+                            input_manifest: dict | None) -> subprocess.CompletedProcess[str]:
+    input_dir = write_input_dir(load_fixture_rows(), tmp_path / "in")
+    if input_manifest is not None:
+        (input_dir / "manifest.json").write_text(json.dumps(input_manifest), encoding="utf-8")
+    clean = {k: v for k, v in os.environ.items() if k != "SOURCE_DATE_EPOCH"}
+    return subprocess.run(
+        [sys.executable, str(BUILD), "--input-dir", str(input_dir), "--output-dir",
+         str(tmp_path / "out")], env={**clean, **env}, capture_output=True, text=True)
+
+
+def test_default_timestamp_is_the_input_manifests_export_timestamp(tmp_path: Path) -> None:
+    result = build_without_timestamp(
+        tmp_path, {}, {"export_timestamp": "2026-10-24T18:18:57.858255+00:00"})
+    assert result.returncode == 0, result.stderr
+    assert BuildOutput(tmp_path / "out").manifest()["export_timestamp"] == \
+        "2026-10-24T18:18:57.858255+00:00"
+
+
+def test_source_date_epoch_overrides_the_input_manifest(tmp_path: Path) -> None:
+    result = build_without_timestamp(tmp_path, {"SOURCE_DATE_EPOCH": "1767225600"},
+                                     {"export_timestamp": "2026-10-24T18:18:57+00:00"})
+    assert result.returncode == 0, result.stderr
+    assert BuildOutput(tmp_path / "out").manifest()["export_timestamp"] == FIXED_TIMESTAMP
+
+
+def test_build_refuses_to_use_the_clock_for_a_timestamp(tmp_path: Path) -> None:
+    result = build_without_timestamp(tmp_path, {}, None)
+    assert result.returncode != 0
+    assert not (tmp_path / "out" / "manifest.json").exists()

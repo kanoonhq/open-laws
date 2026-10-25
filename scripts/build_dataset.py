@@ -11,7 +11,8 @@ Usage:
   python scripts/build_dataset.py --input-dir .cache/inputs/v0.1.1 \\
       --output-dir data [--timestamp 2026-01-01T00:00:00+00:00]
 
-Without --timestamp, SOURCE_DATE_EPOCH is used, else the current UTC time.
+Without --timestamp, SOURCE_DATE_EPOCH is used, else the export_timestamp of
+--input-dir/manifest.json. The build never stamps itself with the current time.
 """
 
 from __future__ import annotations
@@ -166,10 +167,17 @@ def build(input_dir: Path, output_dir: Path, timestamp: str) -> dict[str, Any]:
     return manifest
 
 
-def default_timestamp() -> str:
-    epoch = os.environ.get("SOURCE_DATE_EPOCH")
-    moment = datetime.fromtimestamp(int(epoch), timezone.utc) if epoch else datetime.now(timezone.utc)
-    return moment.isoformat()
+def default_timestamp(input_dir: Path) -> str:
+    """SOURCE_DATE_EPOCH, else the input manifest's export_timestamp; never the clock."""
+    if epoch := os.environ.get("SOURCE_DATE_EPOCH"):
+        return datetime.fromtimestamp(int(epoch), timezone.utc).isoformat()
+    manifest_path = input_dir / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if timestamp := manifest.get("export_timestamp"):
+            return timestamp
+    raise SystemExit("No --timestamp, SOURCE_DATE_EPOCH or export_timestamp in "
+                     f"{manifest_path}: refusing to stamp the build with the current time")
 
 
 def main() -> int:
@@ -178,7 +186,7 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--timestamp", help="ISO 8601 export_timestamp (fixes the output bytes)")
     args = parser.parse_args()
-    timestamp = args.timestamp or default_timestamp()
+    timestamp = args.timestamp or default_timestamp(args.input_dir)
     datetime.fromisoformat(timestamp)  # reject a malformed --timestamp early
     manifest = build(args.input_dir, args.output_dir, timestamp)
     print(f"✅ Built {VERSION} into {args.output_dir}: {manifest['total_acts']:,} Acts, "
