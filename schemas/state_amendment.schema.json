@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StateAmendment",
+  "description": "One state entry of a STATE AMENDMENT block printed in a Central Act section (PROCUREMENT_PLAN §2.2 Table 7), bootstrapped offline from the corpus. Unparsed parts are null; raw_text keeps the entry as printed.",
+  "type": "object",
+  "required": [
+    "id", "central_act_id", "section_id", "section_slug", "section_number", "state_name",
+    "state_jurisdiction", "state_act_reference", "amendment_type", "amended_text", "raw_text",
+    "effective_date", "valid_to", "source_url"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^A[0-9]{4}-[0-9]+:s[^:]+:(IN-[A-Z0-9-]+|unmapped)(-[0-9]+)?$",
+      "description": "Deterministic ID {central_act_id}:s{section_slug}:{state_jurisdiction | unmapped}, -2, -3, ... on collision, e.g. A1908-5:s115:IN-UP"
+    },
+    "central_act_id": {
+      "type": "string",
+      "pattern": "^A[0-9]{4}-[0-9]+$",
+      "description": "The amended Central Act, e.g. A1908-5 (CPC)"
+    },
+    "section_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The sections-table id of the section whose text prints the block"
+    },
+    "section_slug": {"type": "string", "minLength": 1},
+    "section_number": {
+      "type": ["string", "null"],
+      "description": "The section the entry says it amends (e.g. 115, 25A); null when not stated"
+    },
+    "state_name": {
+      "type": ["string", "null"],
+      "description": "The state name as printed in the entry heading, or in the reference when the entry has no heading"
+    },
+    "state_jurisdiction": {
+      "type": ["string", "null"],
+      "pattern": "^IN-[A-Z0-9-]+$",
+      "description": "jurisdictions.code of the state; null when the name is unknown or ambiguous"
+    },
+    "state_act_reference": {
+      "type": ["string", "null"],
+      "description": "The [Vide …] reference as printed, e.g. U.P. Act 31 of 1978, s. 2"
+    },
+    "amendment_type": {
+      "type": ["string", "null"],
+      "enum": ["substitution", "insertion", "omission", "proviso", null],
+      "description": "From the instruction's verbs; null when there is none or several kinds"
+    },
+    "amended_text": {
+      "type": ["string", "null"],
+      "description": "The amendment as printed, without the state heading and reference"
+    },
+    "raw_text": {"type": "string", "minLength": 1},
+    "effective_date": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "A (w.e.f. …) date printed with the reference; else null"
+    },
+    "valid_to": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Date the state amendment ceased to apply: the central Act's repeal_date when it is repealed (2024-07-01 for the IPC, CrPC and Evidence Act)"
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "pattern": "^https://",
+      "description": "Provenance; null in v0.3.0 (the corpus records no per-section URL)"
+    }
+  }
+}
