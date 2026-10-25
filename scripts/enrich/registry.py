@@ -8,4 +8,5 @@ from enrich import events as events_stage
 
 DERIVED_TABLES: list[DerivedTable] = [
     events_stage.TABLE,
+    __import__("enrich.judicial_events", fromlist=["TABLE"]).TABLE,  # ticket #14
 ]
