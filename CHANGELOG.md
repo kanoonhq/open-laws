@@ -43,8 +43,8 @@ New checks in `scripts/validate.py`:
 | Sections | 36,895 |
 | Footnotes | 28,656 |
 | Footnotes with a `w.e.f.` date | 22,674 |
-| Footnote linkage rate | 49.88% (0.4988) |
-| Links by method (`inline_marker` / `page_order` / `act_level`) | 13,286 / 1,008 / 14,362 |
+| Footnote linkage rate | 47.84% (0.4784) |
+| Links by method (`inline_marker` / `page_order` / `act_level`) | 13,286 / 424 / 14,946 |
 | Acts with an `assent_date` | 861 |
 
 ## v0.1.1

@@ -45,7 +45,7 @@ This dataset provides structured, versioned, machine-readable bare acts, section
 - **Version**: v0.2.0 (see [`CHANGELOG.md`](CHANGELOG.md))
 - **Total Acts**: 861 Central Acts (1838–2023)
 - **Total Sections/Provisions**: 36,895
-- **Statutory Amendment Footnotes**: 28,656 (22,674 with explicit `w.e.f.` dates; 49.88% linked to a section)
+- **Statutory Amendment Footnotes**: 28,656 (22,674 with explicit `w.e.f.` dates; 47.84% linked to a section)
 - **Criminal Transition Mappings**: 107 key provisions (IPC→BNS, CrPC→BNSS, IEA→BSA)
 - **Coverage**: Central Acts only, current text only. Not yet included: Central Acts enacted after the 2023 criminal codes (2023–2026), the Constitution of India, State Acts, subordinate legislation, and historical versions of sections.
 - **License**: [CC0 1.0 Universal (Public Domain Dedication)](https://creativecommons.org/publicdomain/zero/1.0/)
