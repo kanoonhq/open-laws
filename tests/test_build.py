@@ -93,7 +93,7 @@ def build_without_timestamp(tmp_path: Path, env: dict[str, str],
     clean = {k: v for k, v in os.environ.items() if k != "SOURCE_DATE_EPOCH"}
     return subprocess.run(
         [sys.executable, str(BUILD), "--input-dir", str(input_dir), "--output-dir",
-         str(tmp_path / "out")], env={**clean, **env}, capture_output=True, text=True)
+         str(tmp_path / "out")], env={**clean, **env}, capture_output=True, text=True, check=False)
 
 
 def test_default_timestamp_is_the_input_manifests_export_timestamp(tmp_path: Path) -> None:

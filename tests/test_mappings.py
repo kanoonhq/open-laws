@@ -6,7 +6,13 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from conftest import BuildOutput, build_fixtures, corrupt_output, load_fixture_rows, run_validator
+from conftest import (
+    BuildOutput,
+    build_fixtures,
+    corrupt_output,
+    load_fixture_rows,
+    run_validator,
+)
 
 
 def mappings_by_new_act(built: BuildOutput) -> dict[str, dict]:

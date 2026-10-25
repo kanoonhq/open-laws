@@ -27,9 +27,9 @@ from typing import Any
 
 import pyarrow.parquet as pq
 from enrich import acts as acts_stage
-from enrich.dates import calendar_date
 from enrich import footnotes as footnotes_stage
 from enrich import mappings as mappings_stage
+from enrich.dates import calendar_date
 from jsonschema import Draft202012Validator
 from table_files import ACTS, FOOTNOTES, MAPPINGS, SECTIONS
 

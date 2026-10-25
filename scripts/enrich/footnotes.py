@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from itertools import pairwise
 from typing import Any
 
 import pyarrow as pa
@@ -42,9 +43,9 @@ METHODS = (INLINE, PAGE_ORDER, ACT_LEVEL)
 # --- w.e.f. dates -----------------------------------------------------------
 
 _WEF = r"w\s*\.?\s*e\s*\.?\s*f\s*[.,]*[\s.,]*(?:dated\s+)?"
-WEF_NUMERIC = re.compile(_WEF + r"(\d{1,2})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{4})(?!\d)", re.I)
+WEF_NUMERIC = re.compile(_WEF + r"(\d{1,2})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{4})(?!\d)", re.IGNORECASE)
 WEF_WORDS = re.compile(_WEF + r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:day\s+of\s+)?([A-Za-z]+)\.?,?\s*(\d{4})(?!\d)",
-                       re.I)
+                       re.IGNORECASE)
 
 
 def run_in_footnotes(footnote: Row) -> list[int]:
@@ -90,7 +91,7 @@ NOT_A_MARKER = {
     "sections", "serial", "table", "vol",
 }
 # A Schedule run into a section's text: "THE FIRST SCHEDULE", "1[THE SCHEDULE".
-SCHEDULE_HEADING = re.compile(r"^\s*(?:\d+\[)?\s*(?:THE\s+)?(?:[A-Z]+\s+)?SCHEDULE\b", re.M)
+SCHEDULE_HEADING = re.compile(r"^\s*(?:\d+\[)?\s*(?:THE\s+)?(?:[A-Z]+\s+)?SCHEDULE\b", re.MULTILINE)
 # (section index, or None for text after a Schedule heading; footnote number; kind)
 Marker = tuple[int | None, int, str]
 
@@ -126,7 +127,7 @@ def marker_runs(sections: Rows, max_number: int) -> list[list[Marker]]:
 
 # --- page alignment ---------------------------------------------------------
 
-OMITTED = re.compile(r"\b(?:omitted|rep\.|repealed)\b", re.I)
+OMITTED = re.compile(r"\b(?:omitted|rep\.|repealed)\b", re.IGNORECASE)
 INSERTED = re.compile(r"^\s*\d+\.\s*(?:Ins|Subs)\.")
 
 
@@ -216,7 +217,7 @@ def link_act(footnotes: list[tuple[int, Row]], sections: Rows) -> dict[int, tupl
     for page_index in sorted(set(aligned.values())):
         order = [i for _, (i, _) in sorted(pages[page_index].by_number.items())]
         linked = [pos for pos, i in enumerate(order) if i in links]
-        for a, b in zip(linked, linked[1:]):
+        for a, b in pairwise(linked):
             slug = links[order[a]][0]
             if links[order[b]][0] == slug:
                 for pos in range(a + 1, b):

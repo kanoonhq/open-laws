@@ -29,7 +29,6 @@ from typing import Any
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-
 from enrich import Coverage, Rows
 from enrich import acts as acts_stage
 from enrich import footnotes as footnotes_stage

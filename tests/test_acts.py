@@ -5,8 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
-from conftest import BuildOutput, build_fixtures, corrupt_output, load_fixture_rows, run_validator
+from conftest import (
+    BuildOutput,
+    build_fixtures,
+    corrupt_output,
+    load_fixture_rows,
+    run_validator,
+)
 
 
 def acts_by_id(output: BuildOutput) -> dict[str, dict]:

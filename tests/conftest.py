@@ -72,7 +72,7 @@ def run_validator(data_dir: Path) -> subprocess.CompletedProcess[str]:
     """Run scripts/validate.py --data-dir; inspect .returncode."""
     return subprocess.run(
         [sys.executable, str(VALIDATE), "--data-dir", str(data_dir)],
-        capture_output=True, text=True,
+        capture_output=True, text=True, check=False,
     )
 
 
