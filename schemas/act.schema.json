@@ -3,7 +3,7 @@
   "title": "Act",
   "description": "Schema for an Act in the Open Laws India corpus",
   "type": "object",
-  "required": ["act_id", "title", "jurisdiction", "structure"],
+  "required": ["act_id", "work_id", "doc_type", "title", "jurisdiction", "structure"],
   "properties": {
     "act_id": {
       "type": "string",
