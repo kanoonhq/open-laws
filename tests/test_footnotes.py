@@ -76,7 +76,7 @@ def wef_variant() -> dict[str, list[dict]]:
     tables = load_fixture_rows()
     act = next(a for a in tables["acts"] if a["act_id"] == "A1909-7")
     tables["acts"].append({**act, "act_id": "A1855-13", "title": "The Fatal Accidents Act, 1855",
-                           "act_number": "13", "section_count": 0, "footnote_count": 3})
+                           "act_number": "13", "section_count": 0, "footnote_count": 4})
     base = {"act_id": "A1855-13", "page_or_anchor": "Page 2", "amending_year": None,
             "amending_act_citation": None}
     tables["footnotes"] += [
@@ -88,6 +88,10 @@ def wef_variant() -> dict[str, list[dict]]:
          "wef_date": None},
         {**base, "id": "A1855-13:Page 2:4", "footnote_number": 5, "amendment_type": "insertion",
          "raw_text": "5. Ins. by Act 3 of 1951, s. 3 and Sch.", "wef_date": "1951-04-01"},
+        # Footnote 7 run into footnote 6's text: its date is not footnote 6's.
+        {**base, "id": "A1855-13:Page 2:5", "footnote_number": 6, "amendment_type": "substitution",
+         "raw_text": "6. Subs. by Act 24 of 1978, s. 6, for “five years” (w.e.f. 21-7-198).7. Sub-section "
+                     "(2) omitted by Act 55 of 1963, s. 2 (w.e.f. 1-2-1964).", "wef_date": None},
     ]
     return tables
 
@@ -101,6 +105,7 @@ def test_wef_dates_are_reparsed_from_raw_text(tmp_path: Path) -> None:
     assert footnotes["A1855-13:Page 2:3"]["wef_date"] == "2024-07-01"
     # No date in raw_text: the v0.1.1 value is kept.
     assert footnotes["A1855-13:Page 2:4"]["wef_date"] == "1951-04-01"
+    assert footnotes["A1855-13:Page 2:5"]["wef_date"] is None
     with_wef = sum(f["wef_date"] is not None for f in footnotes.values())
     assert output.manifest()["footnotes_with_wef"] == with_wef
     assert run_validator(output.dir).returncode == 0

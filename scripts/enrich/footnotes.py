@@ -50,6 +50,24 @@ WEF_WORDS = re.compile(_WEF + r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:day\s+of\s+)?([A-
                        re.I)
 
 
+def run_in_footnotes(footnote: Row) -> list[int]:
+    """Offsets in raw_text where later footnotes run into this one start
+    ("9. Subs. ... (w.e.f. 21-7-1978).10. Ins. ..." gives the offset of "10.")."""
+    starts: list[int] = []
+    text, pos = footnote["raw_text"], 0
+    while m := re.compile(rf"(?<!\d){footnote['footnote_number'] + len(starts) + 1}\.\s*"
+                          r"(?=[A-Z“\"‘])").search(text, pos):
+        starts.append(m.start())
+        pos = m.end()
+    return starts
+
+
+def own_text(footnote: Row) -> str:
+    """raw_text without the later footnotes run into it."""
+    starts = run_in_footnotes(footnote)
+    return footnote["raw_text"][: starts[0]] if starts else footnote["raw_text"]
+
+
 def parse_wef(text: str) -> str | None:
     """The first valid w.e.f. date in text as YYYY-MM-DD, tolerating spaces and
     separators inside it: `w.e.f. 31-10- 2019`, `w.e.f. 1-7-2024`, `w.e.f. 1st July, 2024`."""
@@ -122,13 +140,8 @@ class Page:
         self.usable = len(set(numbers)) == len(numbers)
         self.by_number = {f["footnote_number"]: (i, f) for i, f in footnotes}
         self.count = max(numbers)
-        # A last footnote with later ones run into its text ("9. Subs. ...10. Ins. ...")
-        # still has markers for them in the sections.
-        self.capacity = self.count
-        last = self.by_number[self.count][1]["raw_text"]
-        pos = 0
-        while m := re.compile(rf"(?<!\d){self.capacity + 1}\.\s*(?=[A-Z“\"‘])").search(last, pos):
-            self.capacity, pos = self.capacity + 1, m.end()
+        # Footnotes run into the last one's text still have markers in the sections.
+        self.capacity = self.count + len(run_in_footnotes(self.by_number[self.count][1]))
 
 
 def agreement(kind: str, raw_text: str) -> int:
@@ -243,6 +256,6 @@ def enrich(footnotes: Rows, sections: Rows) -> tuple[Rows, Coverage]:
     rows: Rows = []
     for i, f in enumerate(footnotes):
         slug, method = links.get(i, (None, ACT_LEVEL))
-        row: dict[str, Any] = {**f, "wef_date": parse_wef(f["raw_text"]) or f["wef_date"]}
+        row: dict[str, Any] = {**f, "wef_date": parse_wef(own_text(f)) or f["wef_date"]}
         rows.append({**row, "section_slug": slug, "linkage_method": method})
     return rows, linkage_coverage(rows)
