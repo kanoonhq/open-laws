@@ -71,6 +71,20 @@ def test_footnote_between_two_markers_of_one_section_links_by_page_order(tmp_pat
     assert link(footnotes["A1860-45:Page 15:3"]) == ("4", "inline_marker")
 
 
+def test_markers_after_a_schedule_heading_in_section_text_do_not_link(tmp_path: Path) -> None:
+    # v0.1.1 sometimes runs a Schedule into the text of the section before it.
+    tables = load_fixture_rows()
+    for section in tables["sections"]:
+        if section["id"] == "A1860-45:4":
+            section["full_text"] = section["full_text"].replace(
+                "1[Illustration]", "THE FIRST SCHEDULE\n[See section 4]\n1[Illustration]")
+    footnotes = footnotes_by_id(build_fixtures(tmp_path, tables))
+    assert link(footnotes["A1860-45:Page 14:2"]) == ("1", "inline_marker")
+    assert link(footnotes["A1860-45:Page 14:7"]) == ("3", "inline_marker")
+    for n in range(8):
+        assert link(footnotes[f"A1860-45:Page 15:{n}"]) == (None, "act_level")
+
+
 def wef_variant() -> dict[str, list[dict]]:
     """The fixtures plus the Fatal Accidents Act's Page 2 footnotes (v0.1.1 rows)."""
     tables = load_fixture_rows()

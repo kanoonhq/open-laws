@@ -97,16 +97,19 @@ NOT_A_MARKER = {
     "order", "page", "paragraph", "part", "regulation", "rule", "schedule", "section",
     "sections", "serial", "table", "vol",
 }
-Marker = tuple[int, int, str]  # (section index, footnote number, kind)
+# A Schedule run into a section's text: "THE FIRST SCHEDULE", "1[THE SCHEDULE".
+SCHEDULE_HEADING = re.compile(r"^\s*(?:\d+\[)?\s*(?:THE\s+)?(?:[A-Z]+\s+)?SCHEDULE\b", re.M)
+# (section index, or None for text after a Schedule heading; footnote number; kind)
+Marker = tuple[int | None, int, str]
 
 
-def markers(text: str) -> list[tuple[int, str]]:
-    """(number, kind) of every inline footnote marker in text, in text order."""
+def markers(text: str) -> list[tuple[int, int, str]]:
+    """(offset, number, kind) of every inline footnote marker in text, in text order."""
     found = [(m.start(), int(m.group(1)), "stars" if "*" in m.group(2) else "bracket")
              for m in BRACKET_OR_STARS.finditer(text)]
     found += [(m.start(2), int(m.group(2)), "trailing") for m in TRAILING.finditer(text)
               if m.group(1) not in NOT_A_MARKER]
-    return [(number, kind) for _, number, kind in sorted(found) if number > 0]
+    return [marker for marker in sorted(found) if marker[1] > 0]
 
 
 def marker_runs(sections: Rows, max_number: int) -> list[list[Marker]]:
@@ -115,13 +118,16 @@ def marker_runs(sections: Rows, max_number: int) -> list[list[Marker]]:
     run: list[Marker] = []
     seen: set[int] = set()
     for index, section in enumerate(sections):
-        for number, kind in markers(section["full_text"] or ""):
+        text = section["full_text"] or ""
+        schedule = SCHEDULE_HEADING.search(text)
+        for offset, number, kind in markers(text):
             if number > max_number:  # no page has that many footnotes: not a marker
                 continue
             if run and number < run[-1][1] and (number == 1 or number not in seen):
                 runs.append(run)
                 run, seen = [], set()
-            run.append((index, number, kind))
+            # Markers in a Schedule still pace the pages but link to no section.
+            run.append((None if schedule and offset > schedule.start() else index, number, kind))
             seen.add(number)
     return [*runs, run] if run else runs
 
@@ -205,12 +211,13 @@ def link_act(footnotes: list[tuple[int, Row]], sections: Rows) -> dict[int, tupl
     runs = marker_runs(sections, max(page.capacity for page in pages))
     links: dict[int, tuple[str, str]] = {}
     for run_index, page_index in align(runs, pages).items():
-        marked: dict[int, set[int]] = defaultdict(set)
+        marked: dict[int, set[int | None]] = defaultdict(set)
         for section_index, number, _ in runs[run_index]:
             marked[number].add(section_index)
         for number, (i, _) in pages[page_index].by_number.items():
-            if len(where := marked.get(number, set())) == 1:
-                links[i] = (sections[next(iter(where))]["slug"], INLINE)
+            where = marked.get(number, set())
+            if len(where) == 1 and (section_index := next(iter(where))) is not None:
+                links[i] = (sections[section_index]["slug"], INLINE)
     # page_order: footnotes in page order between two links to the same section.
     order = [i for page in pages for _, (i, _) in sorted(page.by_number.items())]
     linked = [pos for pos, i in enumerate(order) if i in links]
