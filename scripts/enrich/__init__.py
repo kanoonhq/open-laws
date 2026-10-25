@@ -30,6 +30,10 @@ Rows = list[Row]
 Coverage = dict[str, Any]
 # Hand-maintained inputs (CSV/JSON, one source URL per row), reviewed like code.
 CURATED_DIR = Path(__file__).resolve().parents[2] / "curated"
+# tables[BUILD_INFO] is one row {"export_timestamp", "version"}: the build's
+# fixed --timestamp and version, for derived tables that record provenance.
+# It is a build input, not an output table.
+BUILD_INFO = "build_info"
 
 
 @dataclass(frozen=True)

@@ -30,7 +30,7 @@ from typing import Any
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from enrich import Coverage, Rows
+from enrich import BUILD_INFO, Coverage, Rows
 from enrich import acts as acts_stage
 from enrich import footnotes as footnotes_stage
 from enrich import mappings as mappings_stage
@@ -86,12 +86,13 @@ def read_inputs(input_dir: Path) -> dict[str, Rows]:
     return {name: pq.read_table(input_dir / name).to_pylist() for name in V011_SCHEMAS}
 
 
-def run_stages(inputs: dict[str, Rows]) -> tuple[dict[str, Rows], Coverage]:
+def run_stages(inputs: dict[str, Rows], timestamp: str) -> tuple[dict[str, Rows], Coverage]:
     """Run every stage; merge their coverage (distinct keys) for the manifest."""
     acts, acts_cov = acts_stage.enrich(inputs[ACTS])
     footnotes, fn_cov = footnotes_stage.enrich(inputs[FOOTNOTES], inputs[SECTIONS])
     mappings, map_cov = mappings_stage.enrich(inputs[MAPPINGS])
-    tables = {ACTS: acts, SECTIONS: inputs[SECTIONS], FOOTNOTES: footnotes, MAPPINGS: mappings}
+    tables = {ACTS: acts, SECTIONS: inputs[SECTIONS], FOOTNOTES: footnotes, MAPPINGS: mappings,
+              BUILD_INFO: [{"export_timestamp": timestamp, "version": VERSION}]}
     stage_coverages = [acts_cov, fn_cov, map_cov]
     for derived in DERIVED_TABLES:  # in registry order: each sees the ones before it
         tables[derived.file] = derived.build(tables)
@@ -157,7 +158,7 @@ def build(input_dir: Path, output_dir: Path, timestamp: str) -> dict[str, Any]:
     """Build every output file into output_dir; returns the manifest."""
     if input_dir.resolve() == output_dir.resolve():
         raise ValueError("--output-dir must differ from --input-dir (inputs are frozen)")
-    tables, coverage = run_stages(read_inputs(input_dir))
+    tables, coverage = run_stages(read_inputs(input_dir), timestamp)
     output_dir.mkdir(parents=True, exist_ok=True)
     for name, schema in OUTPUT_SCHEMAS.items():
         write_parquet(tables[name], schema, output_dir / name)
