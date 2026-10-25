@@ -173,3 +173,18 @@ def test_validator_rejects_an_unknown_linkage_method(built: BuildOutput, tmp_pat
     result = run_validator(broken.dir)
     assert result.returncode != 0
     assert "central_act_footnotes.parquet row 0" in result.stdout
+
+
+def test_page_order_never_links_across_a_page_boundary(tmp_path: Path) -> None:
+    # Page 14's last footnote and Page 15's second both mark section 4; Page 15's
+    # first footnote sits between them only by crossing the page break: no link.
+    tables = load_fixture_rows()
+    for section in tables["sections"]:
+        if section["id"] == "A1860-45:4":
+            section["full_text"] = (section["full_text"]
+                                    .replace("committed by—\n10[", "committed 9[by]—\n10[")
+                                    .replace("1[Illustration]", "Illustration"))
+    footnotes = footnotes_by_id(build_fixtures(tmp_path, tables))
+    assert link(footnotes["A1860-45:Page 14:8"]) == ("4", "inline_marker")
+    assert link(footnotes["A1860-45:Page 15:1"]) == ("4", "inline_marker")
+    assert link(footnotes["A1860-45:Page 15:0"]) == (None, "act_level")

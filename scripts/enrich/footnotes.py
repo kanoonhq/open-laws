@@ -14,8 +14,8 @@ carry no page numbers, so each Act is aligned in three steps:
    marker whose kind agrees with the footnote's amendment counts double). A run
    is only kept when its page is the same in every best alignment.
 3. Links: a footnote whose number has markers in exactly one section of its
-   page's run is `inline_marker`; an unlinked footnote between two links to the
-   same section is `page_order`. Everything else is `act_level` with no slug.
+   page's run is `inline_marker`; an unlinked footnote between two
+   `inline_marker` links to the same section on the same page is `page_order`. Everything else is `act_level` with no slug.
 
 Never guess: any ambiguity (a tie between pages, a number marked in two
 sections) leaves the footnote at `act_level`.
@@ -219,7 +219,8 @@ def link_act(footnotes: list[tuple[int, Row]], sections: Rows) -> dict[int, tupl
         return {}
     runs = marker_runs(sections, max(page.capacity for page in pages))
     links: dict[int, tuple[str, str]] = {}
-    for run_index, page_index in align(runs, pages).items():
+    aligned = align(runs, pages)
+    for run_index, page_index in aligned.items():
         marked: dict[int, set[int | None]] = defaultdict(set)
         for section_index, number, _ in runs[run_index]:
             marked[number].add(section_index)
@@ -227,14 +228,16 @@ def link_act(footnotes: list[tuple[int, Row]], sections: Rows) -> dict[int, tupl
             where = marked.get(number, set())
             if len(where) == 1 and (section_index := next(iter(where))) is not None:
                 links[i] = (sections[section_index]["slug"], INLINE)
-    # page_order: footnotes in page order between two links to the same section.
-    order = [i for page in pages for _, (i, _) in sorted(page.by_number.items())]
-    linked = [pos for pos, i in enumerate(order) if i in links]
-    for a, b in zip(linked, linked[1:]):
-        slug = links[order[a]][0]
-        if links[order[b]][0] == slug:
-            for pos in range(a + 1, b):
-                links[order[pos]] = (slug, PAGE_ORDER)
+    # page_order: footnotes between two inline links to the same section on the
+    # same aligned page. Never across a page break: when unsure, no link.
+    for page_index in sorted(set(aligned.values())):
+        order = [i for _, (i, _) in sorted(pages[page_index].by_number.items())]
+        linked = [pos for pos, i in enumerate(order) if i in links]
+        for a, b in zip(linked, linked[1:]):
+            slug = links[order[a]][0]
+            if links[order[b]][0] == slug:
+                for pos in range(a + 1, b):
+                    links[order[pos]] = (slug, PAGE_ORDER)
     return links
 
 
