@@ -85,6 +85,15 @@ def parse_wef(text: str) -> str | None:
     return None
 
 
+def calendar_date(value: str | None) -> str | None:
+    """value when it is a real YYYY-MM-DD calendar date, else None (never guessed:
+    v0.1.1 carries a few such as 1959-19-01)."""
+    try:
+        return value if value and date.fromisoformat(value).isoformat() == value else None
+    except ValueError:
+        return None
+
+
 # --- inline markers ---------------------------------------------------------
 
 BRACKET_OR_STARS = re.compile(r"(?<![\w.(/-])(\d{1,3})(\[|\s?\*(?:\s?\*){2,})")
@@ -263,6 +272,6 @@ def enrich(footnotes: Rows, sections: Rows) -> tuple[Rows, Coverage]:
     rows: Rows = []
     for i, f in enumerate(footnotes):
         slug, method = links.get(i, (None, ACT_LEVEL))
-        row: dict[str, Any] = {**f, "wef_date": parse_wef(own_text(f)) or f["wef_date"]}
+        row: dict[str, Any] = {**f, "wef_date": parse_wef(own_text(f)) or calendar_date(f["wef_date"])}
         rows.append({**row, "section_slug": slug, "linkage_method": method})
     return rows, linkage_coverage(rows)

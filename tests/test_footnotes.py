@@ -125,6 +125,20 @@ def test_wef_dates_are_reparsed_from_raw_text(tmp_path: Path) -> None:
     assert run_validator(output.dir).returncode == 0
 
 
+def test_impossible_wef_date_becomes_null(tmp_path: Path) -> None:
+    # v0.1.1 row A1950-64:Page 15:4: "1-19-1959" is no calendar date, and the
+    # v0.1.1 value 1959-19-01 is not one either. Never guess: null.
+    tables = wef_variant()
+    tables["footnotes"].append(
+        {"act_id": "A1855-13", "page_or_anchor": "Page 3", "amending_year": 1959,
+         "amending_act_citation": None, "id": "A1855-13:Page 3:0", "footnote_number": 1,
+         "amendment_type": "insertion", "raw_text": "1. Ins. by Act 28 of 1959, s. 10 (w.e.f. 1-19-1959).",
+         "wef_date": "1959-19-01"})
+    output = build_fixtures(tmp_path, tables)
+    assert footnotes_by_id(output)["A1855-13:Page 3:0"]["wef_date"] is None
+    assert run_validator(output.dir).returncode == 0
+
+
 def test_manifest_reports_footnote_linkage_coverage(built: BuildOutput) -> None:
     coverage = built.manifest()["coverage"]
     footnotes = built.table("footnotes")

@@ -81,6 +81,12 @@ def test_rejects_impossible_calendar_date(built: BuildOutput, tmp_path: Path) ->
     assert_rejected(broken, "A1909-7: commencement_date 1909-02-30 is not an ISO YYYY-MM-DD date")
 
 
+def test_rejects_impossible_wef_date(built: BuildOutput, tmp_path: Path) -> None:
+    broken = corrupt_output(built, tmp_path / "out", "footnotes",
+                            update_footnote("A1909-7", 2, wef_date="1959-19-01"))
+    assert_rejected(broken, "wef_date 1959-19-01 is not an ISO YYYY-MM-DD date")
+
+
 def test_rejects_repeal_date_on_act_in_force(built: BuildOutput, tmp_path: Path) -> None:
     broken = corrupt_output(built, tmp_path / "out", "acts",
                             update_act("A1909-7", repeal_date="2024-07-01"))

@@ -58,11 +58,11 @@ REQUIRED_MANIFEST_KEYS = (
     "files",
 )
 MAX_ERRORS_PER_CHECK = 5
-# Parquet file -> (row label column, v0.2.0 date columns; absent columns are
-# skipped). footnotes.wef_date is pattern-checked by its schema only: v0.1.1
-# carries a few impossible dates (e.g. 1959-19-01) that the build keeps.
+# Parquet file -> (row label column, date columns; absent columns are skipped).
+# The build nulls the impossible wef_dates v0.1.1 carries (e.g. 1959-19-01).
 DATE_COLUMNS = {
     ACTS: ("act_id", ("assent_date", "commencement_date", "repeal_date")),
+    FOOTNOTES: ("id", ("wef_date",)),
     MAPPINGS: ("old_section", ("effective_from",)),
 }
 ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
