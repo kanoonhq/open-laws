@@ -3,12 +3,22 @@ re-seal its checksums, and expect validate.py to name the broken invariant."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from pathlib import Path
 
+import pyarrow.parquet as pq
 import pytest
-from conftest import BuildOutput, Rows, corrupt_output, run_validator
+from conftest import (
+    TABLE_FILES,
+    BuildOutput,
+    Rows,
+    corrupt_output,
+    load_fixture_rows,
+    run_validator,
+    write_input_dir,
+)
 
 
 def assert_rejected(broken: BuildOutput, message: str) -> None:
@@ -60,6 +70,46 @@ def test_rejects_linked_footnote_without_slug(built: BuildOutput, tmp_path: Path
     broken = corrupt_output(built, tmp_path / "out", "footnotes",
                             update_footnote("A1909-7", 2, section_slug=None))
     assert_rejected(broken, "linkage_method inline_marker but section_slug None")
+
+
+def test_v020_manifest_requires_the_section_slug_column(built: BuildOutput, tmp_path: Path) -> None:
+    def drop_section_slug(rows: Rows) -> Rows:
+        return [{k: v for k, v in f.items() if k != "section_slug"} for f in rows]
+
+    broken = corrupt_output(built, tmp_path / "out", "footnotes", drop_section_slug)
+    assert_rejected(broken, "central_act_footnotes.parquet is missing v0.2.0 column section_slug")
+
+
+def test_v020_manifest_requires_coverage(built: BuildOutput, tmp_path: Path) -> None:
+    shutil.copytree(built.dir, tmp_path / "out")
+    manifest_path = tmp_path / "out" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    del manifest["coverage"]
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    assert_rejected(BuildOutput(tmp_path / "out"), "manifest.json is missing v0.2.0 key coverage")
+
+
+def test_v011_data_still_validates(tmp_path: Path) -> None:
+    # The fixture inputs are v0.1.1 tables: no v0.2.0 columns or coverage, and
+    # v0.1.1 carries impossible wef_dates (A1950-64:Page 15:4 has 1959-19-01).
+    v011 = load_fixture_rows()
+    v011["footnotes"][0] = {**v011["footnotes"][0], "wef_date": "1959-19-01"}
+    data_dir = write_input_dir(v011, tmp_path / "v011")
+    rows = {"total_acts": "acts", "total_sections": "sections",
+            "total_footnotes": "footnotes", "total_mappings": "mappings"}
+    tables = {name: pq.read_table(data_dir / TABLE_FILES[name]) for name in TABLE_FILES}
+    manifest = {
+        "version": "v0.1.1",
+        **{key: tables[name].num_rows for key, name in rows.items()},
+        "footnotes_with_wef": 0,
+        "files": {TABLE_FILES[name]: {
+            "size_bytes": (data_dir / TABLE_FILES[name]).stat().st_size,
+            "sha256": hashlib.sha256((data_dir / TABLE_FILES[name]).read_bytes()).hexdigest(),
+            "rows": tables[name].num_rows} for name in TABLE_FILES},
+    }
+    (data_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    result = run_validator(data_dir)
+    assert result.returncode == 0, result.stdout
 
 
 def update_act(act_id: str, **changes: object):

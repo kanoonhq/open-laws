@@ -109,7 +109,9 @@ def corrupt_output(
     path = dst / TABLE_FILES[name]
     table = pq.read_table(path)
     rows = mutate(table.to_pylist())
-    pq.write_table(pa.Table.from_pylist(rows, schema=table.schema), path)
+    # A mutate that drops a column from every row drops it from the file.
+    schema = pa.schema([f for f in table.schema if not rows or f.name in rows[0]])
+    pq.write_table(pa.Table.from_pylist(rows, schema=schema), path)
     manifest = json.loads((dst / "manifest.json").read_text(encoding="utf-8"))
     manifest["files"][path.name] = {
         "size_bytes": path.stat().st_size,

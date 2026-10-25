@@ -3,10 +3,11 @@ Open Laws India — Standalone Data Integrity Validator
 =====================================================
 Validates the dataset files in data/ against data/manifest.json (SHA-256,
 size, row counts), every Parquet row against its schemas/*.schema.json, and
-the references between tables. The v0.2.0 invariants (unique work_id, slug
-collisions, footnote section_slug links, repealed_by, dates, manifest coverage)
-run only when their columns or manifest keys are present, so v0.1.1 data still
-validates.
+the references between tables, and the dataset invariants (slug collisions,
+repealed_by). For a manifest version of v0.2.0 or later it also requires the
+v0.2.0 columns and manifest keys and checks their invariants (unique work_id,
+footnote section_slug links, calendar dates, repeal_date, manifest coverage); older
+versions skip them, so v0.1.1 data still validates.
 
 Usage:
   pip install -r requirements.txt
@@ -29,6 +30,7 @@ from typing import Any
 import pyarrow.parquet as pq
 from enrich import acts as acts_stage
 from enrich import footnotes as footnotes_stage
+from enrich import mappings as mappings_stage
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,9 +59,16 @@ REQUIRED_MANIFEST_KEYS = (
     "total_mappings",
     "files",
 )
+# Required when the manifest version is v0.2.0 or later.
+V020 = (0, 2, 0)
+V020_COLUMNS = {
+    ACTS: [f.name for f in acts_stage.FIELDS],
+    FOOTNOTES: [f.name for f in footnotes_stage.FIELDS],
+    MAPPINGS: [f.name for f in mappings_stage.FIELDS],
+}
+V020_MANIFEST_KEYS = ("coverage",)
 MAX_ERRORS_PER_CHECK = 5
-# Parquet file -> (row label column, date columns; absent columns are skipped).
-# The build nulls the impossible wef_dates v0.1.1 carries (e.g. 1959-19-01).
+# Parquet file -> (row label column, date columns), checked for v0.2.0 data.
 DATE_COLUMNS = {
     ACTS: ("act_id", ("assent_date", "commencement_date", "repeal_date")),
     FOOTNOTES: ("id", ("wef_date",)),
@@ -107,10 +116,28 @@ def check_files(manifest: dict[str, Any], data_dir: Path) -> list[str]:
     return errors
 
 
-def check_schemas(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
+def is_v020(manifest: dict[str, Any]) -> bool:
+    """True when the manifest version is v0.2.0 or later ("v0.2.0" -> (0, 2, 0))."""
+    return tuple(int(part) for part in manifest["version"].removeprefix("v").split(".")) >= V020
+
+
+def check_v020_layout(manifest: dict[str, Any], columns: dict[str, list[str]]) -> list[str]:
+    """A v0.2.0 manifest promises the v0.2.0 manifest keys and table columns."""
+    errors = [f"manifest.json is missing v0.2.0 key {key}"
+              for key in V020_MANIFEST_KEYS if key not in manifest]
+    errors += [f"{filename} is missing v0.2.0 column {column}"
+               for filename, required in V020_COLUMNS.items()
+               for column in required if column not in columns[filename]]
+    return errors
+
+
+def check_schemas(tables: dict[str, list[dict[str, Any]]], v020: bool) -> list[str]:
     errors = []
     for filename, (schema_file, _) in TABLES.items():
         schema = json.loads((SCHEMAS_DIR / schema_file).read_text(encoding="utf-8"))
+        if not v020:  # pre-v0.2.0 tables have none of the v0.2.0 columns
+            schema["required"] = [c for c in schema.get("required", [])
+                                  if c not in V020_COLUMNS.get(filename, [])]
         validator = Draft202012Validator(schema)
         bad = [
             f"{filename} row {i}: {err.message}"
@@ -176,36 +203,32 @@ def duplicates(values: list[Any]) -> list[Any]:
     return [v for v, n in counts.items() if n > 1]
 
 
-# Each v0.2.0 invariant runs only when its column is present, so the v0.1.1
-# tables in data/ still validate.
-def check_invariants(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
+def check_invariants(tables: dict[str, list[dict[str, Any]]], v020: bool) -> list[str]:
+    """Every version's invariants, plus the v0.2.0 ones when v020."""
     acts = tables[ACTS]
-    errors = []
-    if has_column(acts, "work_id"):
-        errors += report("work_id is unique across Acts",
-                         [f"duplicate work_id {w}" for w in duplicates([a["work_id"] for a in acts])])
-    slug_keys = [(s["act_id"], s["structural_unit"], s["language"], s["slug"]) for s in tables[SECTIONS]]
-    errors += report("Section slugs are unique per (act_id, structural_unit, language)",
-                     [f"slug collision {' '.join(map(str, k))}" for k in duplicates(slug_keys)])
-    if has_column(tables[FOOTNOTES], "section_slug"):
-        errors += report("Footnote section_slugs resolve to a section of the same Act",
-                         footnote_link_errors(tables))
     act_ids = {a["act_id"] for a in acts}
+    slug_keys = [(s["act_id"], s["structural_unit"], s["language"], s["slug"]) for s in tables[SECTIONS]]
+    errors = report("Section slugs are unique per (act_id, structural_unit, language)",
+                    [f"slug collision {' '.join(map(str, k))}" for k in duplicates(slug_keys)])
     errors += report("repealed_by resolves to a known Act", [
         f"{a['act_id']}: repealed_by {a['repealed_by']} is not a known act_id"
         for a in acts if a["repealed_by"] is not None and a["repealed_by"] not in act_ids])
+    if not v020:
+        return errors
+    errors += report("work_id is unique across Acts",
+                     [f"duplicate work_id {w}" for w in duplicates([a["work_id"] for a in acts])])
+    errors += report("Footnote section_slugs resolve to a section of the same Act",
+                     footnote_link_errors(tables))
+    # v0.1.1 carries impossible wef_dates (e.g. 1959-19-01); v0.2.0 nulls them.
     errors += report("Date columns are ISO YYYY-MM-DD dates", date_errors(tables))
-    if has_column(acts, "repeal_date"):
-        errors += report("repeal_date is set only on repealed Acts", [
-            f"{a['act_id']}: repeal_date {a['repeal_date']} but is_repealed is false"
-            for a in acts if a["repeal_date"] is not None and not a["is_repealed"]])
+    errors += report("repeal_date is set only on repealed Acts", [
+        f"{a['act_id']}: repeal_date {a['repeal_date']} but is_repealed is false"
+        for a in acts if a["repeal_date"] is not None and not a["is_repealed"]])
     return errors
 
 
 def check_coverage(manifest: dict[str, Any], tables: dict[str, list[dict[str, Any]]]) -> list[str]:
     """manifest.coverage must equal the build's coverage recomputed from the tables."""
-    if "coverage" not in manifest:
-        return []
     expected = {**acts_stage.coverage(tables[ACTS]),
                 **footnotes_stage.linkage_coverage(tables[FOOTNOTES])}
     actual = manifest["coverage"]
@@ -244,10 +267,6 @@ def footnote_link_errors(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
     return bad
 
 
-def has_column(rows: list[dict[str, Any]], column: str) -> bool:
-    return bool(rows) and column in rows[0]
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate the Open Laws India dataset.")
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
@@ -273,14 +292,19 @@ def main() -> int:
     print(f"Criminal Mappings:  {manifest['total_mappings']:,}")
     print("=" * 60)
 
+    v020 = is_v020(manifest)
     errors = check_files(manifest, data_dir)
+    if not errors and v020:
+        errors += check_v020_layout(
+            manifest, {name: pq.read_schema(data_dir / name).names for name in TABLES})
     if not errors:
         tables = {name: pq.read_table(data_dir / name).to_pylist() for name in TABLES}
         print()
-        errors += check_schemas(tables)
+        errors += check_schemas(tables, v020)
         errors += check_references(tables)
-        errors += check_invariants(tables)
-        errors += check_coverage(manifest, tables)
+        errors += check_invariants(tables, v020)
+        if v020:
+            errors += check_coverage(manifest, tables)
 
     if errors:
         print()
