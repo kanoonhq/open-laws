@@ -2,7 +2,8 @@
 Open Laws India — v0.2.0 Dataset Build
 ======================================
 Reads the frozen v0.1.1 tables from --input-dir, runs the enrichment stages
-(scripts/enrich/) and writes the 4 parquet tables, the nested jsonl.gz archive
+(scripts/enrich/) and writes the 4 parquet tables, one parquet file per derived
+table in scripts/enrich/registry.py, the nested jsonl.gz archive
 and manifest.json into --output-dir. The output is byte-deterministic for a
 given input and --timestamp.
 
@@ -33,6 +34,7 @@ from enrich import Coverage, Rows
 from enrich import acts as acts_stage
 from enrich import footnotes as footnotes_stage
 from enrich import mappings as mappings_stage
+from enrich.registry import DERIVED_TABLES
 from table_files import ACTS, ARCHIVE, FOOTNOTES, MAPPINGS, SECTIONS
 
 VERSION = "v0.2.0"
@@ -66,6 +68,7 @@ OUTPUT_SCHEMAS = {
     SECTIONS: V011_SCHEMAS[SECTIONS],
     FOOTNOTES: pa.schema([*V011_SCHEMAS[FOOTNOTES], *footnotes_stage.FIELDS]),
     MAPPINGS: pa.schema([*V011_SCHEMAS[MAPPINGS], *mappings_stage.FIELDS]),
+    **{derived.file: derived.schema for derived in DERIVED_TABLES},
 }
 # Fixed writer options: the same rows always give the same bytes.
 PARQUET_OPTIONS: dict[str, Any] = {
@@ -88,12 +91,16 @@ def run_stages(inputs: dict[str, Rows]) -> tuple[dict[str, Rows], Coverage]:
     acts, acts_cov = acts_stage.enrich(inputs[ACTS])
     footnotes, fn_cov = footnotes_stage.enrich(inputs[FOOTNOTES], inputs[SECTIONS])
     mappings, map_cov = mappings_stage.enrich(inputs[MAPPINGS])
+    tables = {ACTS: acts, SECTIONS: inputs[SECTIONS], FOOTNOTES: footnotes, MAPPINGS: mappings}
+    stage_coverages = [acts_cov, fn_cov, map_cov]
+    for derived in DERIVED_TABLES:  # in registry order: each sees the ones before it
+        tables[derived.file] = derived.build(tables)
+        stage_coverages.append(derived.coverage(tables[derived.file]))
     coverage: Coverage = {}
-    for stage_cov in (acts_cov, fn_cov, map_cov):
+    for stage_cov in stage_coverages:
         if clash := coverage.keys() & stage_cov.keys():
             raise ValueError(f"coverage keys reported by two stages: {sorted(clash)}")
         coverage.update(stage_cov)
-    tables = {ACTS: acts, SECTIONS: inputs[SECTIONS], FOOTNOTES: footnotes, MAPPINGS: mappings}
     return tables, coverage
 
 

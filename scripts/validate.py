@@ -7,7 +7,9 @@ the references between tables, and the dataset invariants (slug collisions,
 repealed_by). For a manifest version of v0.2.0 or later it also requires the
 v0.2.0 columns and manifest keys and checks their invariants (unique work_id,
 footnote section_slug links, calendar dates, repeal_date, manifest coverage); older
-versions skip them, so v0.1.1 data still validates.
+versions skip them, so v0.1.1 data still validates. Each derived table
+(scripts/enrich/registry.py) listed in the manifest is checked against its
+JSON schema, and its coverage is recomputed.
 
 Usage:
   pip install -r requirements.txt
@@ -30,6 +32,7 @@ from enrich import acts as acts_stage
 from enrich import footnotes as footnotes_stage
 from enrich import mappings as mappings_stage
 from enrich.dates import calendar_date
+from enrich.registry import DERIVED_TABLES
 from jsonschema import Draft202012Validator
 from table_files import ACTS, FOOTNOTES, MAPPINGS, SECTIONS
 
@@ -126,7 +129,9 @@ def check_v020_layout(manifest: dict[str, Any], columns: dict[str, list[str]]) -
 
 def check_schemas(tables: dict[str, list[dict[str, Any]]], v020: bool) -> list[str]:
     errors = []
-    for filename, (schema_file, _) in TABLES.items():
+    schema_files = {filename: schema_file for filename, (schema_file, _) in TABLES.items()}
+    schema_files.update({d.file: d.json_schema for d in DERIVED_TABLES if d.file in tables})
+    for filename, schema_file in schema_files.items():
         schema = json.loads((SCHEMAS_DIR / schema_file).read_text(encoding="utf-8"))
         if not v020:  # pre-v0.2.0 tables have none of the v0.2.0 columns
             schema["required"] = [c for c in schema.get("required", [])
@@ -224,6 +229,9 @@ def check_coverage(manifest: dict[str, Any], tables: dict[str, list[dict[str, An
     """manifest.coverage must equal the build's coverage recomputed from the tables."""
     expected = {**acts_stage.coverage(tables[ACTS]),
                 **footnotes_stage.linkage_coverage(tables[FOOTNOTES])}
+    for derived in DERIVED_TABLES:
+        if derived.file in tables:
+            expected.update(derived.coverage(tables[derived.file]))
     actual = manifest["coverage"]
     return report("manifest coverage matches the tables", [
         f"manifest coverage.{key} is {actual.get(key)!r} but the tables give {expected.get(key)!r}"
@@ -284,7 +292,9 @@ def main() -> int:
         errors += check_v020_layout(
             manifest, {name: pq.read_schema(data_dir / name).names for name in TABLES})
     if not errors:
-        tables = {name: pq.read_table(data_dir / name).to_pylist() for name in TABLES}
+        # Derived tables are checked when the manifest lists them (v0.2.0 data has none).
+        names = [*TABLES, *(d.file for d in DERIVED_TABLES if d.file in manifest["files"])]
+        tables = {name: pq.read_table(data_dir / name).to_pylist() for name in names}
         print()
         errors += check_schemas(tables, v020)
         errors += check_references(tables)
