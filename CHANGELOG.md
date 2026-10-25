@@ -4,7 +4,7 @@ All notable changes to Open Laws India are recorded here. Versions follow the da
 
 ## v0.2.0 (unreleased)
 
-A deterministic enrichment of the v0.1.1 corpus. All v0.1.1 columns are kept unchanged, including the legacy `act_id`, so existing joins keep working. Counts marked `<...>` are filled in when the release is built.
+A deterministic enrichment of the v0.1.1 corpus. All v0.1.1 columns are kept unchanged, including the legacy `act_id`, so existing joins keep working.
 
 ### Added
 
@@ -22,7 +22,8 @@ A deterministic enrichment of the v0.1.1 corpus. All v0.1.1 columns are kept unc
 
 ### Fixed
 
-- The `w.e.f.` parser now tolerates irregular spacing and separators inside dates (`31-10- 2019`, `1-7-2024`, `1st July, 2024`), and `wef_date` is re-derived for all footnotes. Footnotes with a `w.e.f.` date: 22,490 → `<WEF_COUNT>`.
+- The `w.e.f.` parser now tolerates irregular spacing and separators inside dates (`31-10- 2019`, `1-7-2024`, `1st July, 2024`), and `wef_date` is re-derived for all footnotes. Footnotes with a `w.e.f.` date: 22,490 → 22,674.
+- Four v0.1.1 footnotes carried a `wef_date` that is not a calendar date (e.g. `1959-19-01`); it is now null rather than guessed.
 
 ### Validator
 
@@ -32,20 +33,20 @@ New checks in `scripts/validate.py`:
 - no slug collisions per `(act_id, structural_unit, language)`;
 - every footnote `section_slug` resolves to a section of the same Act;
 - every `repealed_by` resolves to a known Act;
-- date columns are ISO-formatted;
+- date columns, including footnote `wef_date`, are real ISO calendar dates;
 - the manifest's `coverage` matches values recomputed from the tables.
 
 ### Coverage
 
 | Metric | Value |
 | :--- | :--- |
-| Acts | `<ACT_COUNT>` |
-| Sections | `<SECTION_COUNT>` |
-| Footnotes | `<FOOTNOTE_COUNT>` |
-| Footnotes with a `w.e.f.` date | `<WEF_COUNT>` |
-| Footnote linkage rate | `<LINKAGE_RATE>` |
-| Links by method (`inline_marker` / `page_order` / `act_level`) | `<INLINE_MARKER>` / `<PAGE_ORDER>` / `<ACT_LEVEL>` |
-| Acts with an `assent_date` | `<ASSENT_DATE_COUNT>` |
+| Acts | 861 |
+| Sections | 36,895 |
+| Footnotes | 28,656 |
+| Footnotes with a `w.e.f.` date | 22,674 |
+| Footnote linkage rate | 49.88% (0.4988) |
+| Links by method (`inline_marker` / `page_order` / `act_level`) | 13,286 / 1,008 / 14,362 |
+| Acts with an `assent_date` | 861 |
 
 ## v0.1.1
 
