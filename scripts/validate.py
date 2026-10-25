@@ -3,7 +3,10 @@ Open Laws India — Standalone Data Integrity Validator
 =====================================================
 Validates the dataset files in data/ against data/manifest.json (SHA-256,
 size, row counts), every Parquet row against its schemas/*.schema.json, and
-the references between tables.
+the references between tables. The v0.2.0 invariants (unique work_id, slug
+collisions, footnote section_slug links, repealed_by, dates, manifest coverage)
+run only when their columns or manifest keys are present, so v0.1.1 data still
+validates.
 
 Usage:
   pip install -r requirements.txt
@@ -16,11 +19,16 @@ import argparse
 import gzip
 import hashlib
 import json
+import re
 import sys
+from collections import Counter
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pyarrow.parquet as pq
+from enrich import acts as acts_stage
+from enrich import footnotes as footnotes_stage
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +58,14 @@ REQUIRED_MANIFEST_KEYS = (
     "files",
 )
 MAX_ERRORS_PER_CHECK = 5
+# Parquet file -> (row label column, v0.2.0 date columns; absent columns are
+# skipped). footnotes.wef_date is pattern-checked by its schema only: v0.1.1
+# carries a few impossible dates (e.g. 1959-19-01) that the build keeps.
+DATE_COLUMNS = {
+    ACTS: ("act_id", ("assent_date", "commencement_date", "repeal_date")),
+    MAPPINGS: ("old_section", ("effective_from",)),
+}
+ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 
 def sha256_of(path: Path) -> str:
@@ -147,6 +163,91 @@ def check_references(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
     return errors[: MAX_ERRORS_PER_CHECK * 4]
 
 
+def report(name: str, bad: list[str]) -> list[str]:
+    """Cap one invariant's errors at MAX_ERRORS_PER_CHECK, or print its ✅."""
+    if not bad:
+        print(f"✅ {name}")
+    extra = [f"{name}: {len(bad) - MAX_ERRORS_PER_CHECK} more errors"] if len(bad) > MAX_ERRORS_PER_CHECK else []
+    return bad[:MAX_ERRORS_PER_CHECK] + extra
+
+
+def duplicates(values: list[Any]) -> list[Any]:
+    counts = Counter(values)
+    return [v for v, n in counts.items() if n > 1]
+
+
+# Each v0.2.0 invariant runs only when its column is present, so the v0.1.1
+# tables in data/ still validate.
+def check_invariants(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
+    acts = tables[ACTS]
+    errors = []
+    if has_column(acts, "work_id"):
+        errors += report("work_id is unique across Acts",
+                         [f"duplicate work_id {w}" for w in duplicates([a["work_id"] for a in acts])])
+    slug_keys = [(s["act_id"], s["structural_unit"], s["language"], s["slug"]) for s in tables[SECTIONS]]
+    errors += report("Section slugs are unique per (act_id, structural_unit, language)",
+                     [f"slug collision {' '.join(map(str, k))}" for k in duplicates(slug_keys)])
+    if has_column(tables[FOOTNOTES], "section_slug"):
+        errors += report("Footnote section_slugs resolve to a section of the same Act",
+                         footnote_link_errors(tables))
+    act_ids = {a["act_id"] for a in acts}
+    errors += report("repealed_by resolves to a known Act", [
+        f"{a['act_id']}: repealed_by {a['repealed_by']} is not a known act_id"
+        for a in acts if a["repealed_by"] is not None and a["repealed_by"] not in act_ids])
+    errors += report("Date columns are ISO YYYY-MM-DD dates", date_errors(tables))
+    if has_column(acts, "repeal_date"):
+        errors += report("repeal_date is set only on repealed Acts", [
+            f"{a['act_id']}: repeal_date {a['repeal_date']} but is_repealed is false"
+            for a in acts if a["repeal_date"] is not None and not a["is_repealed"]])
+    return errors
+
+
+def check_coverage(manifest: dict[str, Any], tables: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """manifest.coverage must equal the build's coverage recomputed from the tables."""
+    if "coverage" not in manifest:
+        return []
+    expected = {**acts_stage.coverage(tables[ACTS]),
+                **footnotes_stage.linkage_coverage(tables[FOOTNOTES])}
+    actual = manifest["coverage"]
+    return report("manifest coverage matches the tables", [
+        f"manifest coverage.{key} is {actual.get(key)!r} but the tables give {expected.get(key)!r}"
+        for key in sorted(expected.keys() | actual.keys()) if actual.get(key) != expected.get(key)])
+
+
+def date_errors(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
+    bad = []
+    for filename, (key, columns) in DATE_COLUMNS.items():
+        for row in tables[filename]:
+            for column in columns:
+                value = row.get(column)
+                if value is not None and not is_iso_date(value):
+                    bad.append(f"{row[key]}: {column} {value} is not an ISO YYYY-MM-DD date")
+    return bad
+
+
+def is_iso_date(value: str) -> bool:
+    try:
+        return ISO_DATE.fullmatch(value) is not None and date.fromisoformat(value) is not None
+    except ValueError:
+        return False
+
+
+def footnote_link_errors(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
+    slugs = {(s["act_id"], s["slug"]) for s in tables[SECTIONS]}
+    bad = []
+    for f in tables[FOOTNOTES]:
+        where, slug = f"footnote {f['id']}", f["section_slug"]
+        if (f["linkage_method"] == "act_level") != (slug is None):
+            bad.append(f"{where}: linkage_method {f['linkage_method']} but section_slug {slug}")
+        elif slug is not None and (f["act_id"], slug) not in slugs:
+            bad.append(f"{where}: section_slug {slug} is not a section of {f['act_id']}")
+    return bad
+
+
+def has_column(rows: list[dict[str, Any]], column: str) -> bool:
+    return bool(rows) and column in rows[0]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate the Open Laws India dataset.")
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
@@ -178,6 +279,8 @@ def main() -> int:
         print()
         errors += check_schemas(tables)
         errors += check_references(tables)
+        errors += check_invariants(tables)
+        errors += check_coverage(manifest, tables)
 
     if errors:
         print()

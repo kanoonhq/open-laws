@@ -88,4 +88,9 @@ def enrich(acts: Rows) -> tuple[Rows, Coverage]:
         {**act, "work_id": work_id(act["act_id"]), "doc_type": "act", **date_fields(act)}
         for act in acts
     ]
-    return rows, {"acts_with_assent_date": sum(r["assent_date"] is not None for r in rows)}
+    return rows, coverage(rows)
+
+
+def coverage(rows: Rows) -> Coverage:
+    """The Acts stage's manifest coverage, from enriched Act rows."""
+    return {"acts_with_assent_date": sum(r["assent_date"] is not None for r in rows)}
