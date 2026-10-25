@@ -40,11 +40,15 @@ never guessed:
   Anything else (v0.1.1 misclassified some footnotes, e.g. insertions that
   quote replaced words) leaves the slice `unavailable`. Reversed spans lose
   their markers; markers of other footnotes stay.
-- Status: judicial_events split the chain at decision_date (`struck_down`,
-  `stayed`; `stay_lifted` restores `in_force`; `read_down` and `upheld` never
-  change it), and a repealed Act gets a final `repealed` slice from its
-  repeal_date. Such slices list the ruling's or the repeal event's id in
-  amendment_event_ids.
+- Status: judicial_events split the chain at decision_date, and the effect
+  persists on every later slice of the provision, whatever its text_status:
+  `struck_down` is final (only a repeal follows it), `stayed` lasts until a
+  `stay_lifted` ruling (which restores `in_force` and lifts nothing else),
+  and `read_down` and `upheld` never change status. A repealed Act gets a
+  final `repealed` slice from its repeal_date. Such slices list the ruling's
+  or the repeal event's id in amendment_event_ids.
+- as_of comes from the build input only (BUILD_INFO: --timestamp,
+  SOURCE_DATE_EPOCH or the input manifest's export_timestamp), never the clock.
 - Provenance: source_url is a permalink to the frozen v0.1.1 sections table the
   text was read from (India Code handles are not in the act data; they replace
   it once the crawler records India Code pages), source_sha256 the SHA-256 of
@@ -305,9 +309,19 @@ def with_status(chain: list[Slice], changes: list[tuple[str, str, Row]]) -> list
         else:
             continue  # before the first slice: nothing is known there
         for i in range(at, len(out)):
-            if out[i].status != "repealed":
-                out[i] = replace(out[i], status=status)
+            out[i] = replace(out[i], status=next_status(out[i].status, status))
     return out
+
+
+def next_status(held: str, change: str) -> str:
+    """The status a slice holding `held` gets from a later change. A repeal and
+    a strike-down are final; a stay lasts until stay_lifted (`in_force`), which
+    lifts nothing else; any other slice takes the change."""
+    if held in ("repealed", "struck_down") and change != "repealed":
+        return held
+    if change == "in_force" and held != "stayed":
+        return held  # stay_lifted only lifts a stay
+    return change
 
 
 def summary(s: Slice) -> tuple[str | None, str | None, str | None]:

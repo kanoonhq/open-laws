@@ -8,19 +8,26 @@ else unavailable or `unknown`; judicial rulings and Act repeals split the chain.
 from __future__ import annotations
 
 import hashlib
+import sys
 from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
 from conftest import (
     FIXED_TIMESTAMP,
+    ROOT,
     BuildOutput,
     Rows,
     build_fixtures,
     corrupt_output,
     load_fixture_rows,
+    run_build,
     run_validator,
+    write_input_dir,
 )
+
+sys.path.insert(0, str(ROOT / "scripts"))
+from enrich import section_versions  # noqa: E402
 
 VERSIONS = "indian_act_section_versions.parquet"
 AS_OF = FIXED_TIMESTAMP[:10]  # the build's export date: the source snapshot
@@ -315,6 +322,48 @@ def test_66a_shows_no_verbatim_text_before_its_insertion(built_variant: BuildOut
     assert struck["amendment_event_ids"] == ["A2000-21:je:66a:2015-03-24"]
     assert struck["change_summary"] == "Struck down: Shreya Singhal v. Union of India, Supreme Court of India"
     assert (struck["full_text"], current["full_text"]) == (None, IT_66A)
+
+
+def test_66a_verbatim_slice_after_the_ruling_stays_struck_down(built_variant: BuildOutput) -> None:
+    after = [v for v in slices(built_variant, "A2000-21", "66a") if v["valid_from"] >= "2015-03-24"]
+    assert len(after) == 2
+    assert all(v["status"] == "struck_down" for v in after)
+    assert after[-1]["text_status"] == "verbatim_source"
+
+
+def ruling(effect: str, day: str) -> tuple[str, str, dict]:
+    status = {"struck_down": "struck_down", "stayed": "stayed", "stay_lifted": "in_force"}[effect]
+    return day, status, {"id": f"A1860-45:je:124a:{day}", "effect": effect, "case_name": "X", "court": "Y"}
+
+
+def statuses(changes: list[tuple[str, str, dict]]) -> list[tuple[str, str]]:
+    """Status timeline of a chain [1860 unknown, 2013 in_force, 2023 in_force]
+    (a text boundary after the rulings) under the given rulings."""
+    chain = [section_versions.unknown("1860-10-06"),
+             section_versions.verbatim("old", "2013-02-03"), section_versions.verbatim("new", "2023-01-01")]
+    return [(s.valid_from, s.status) for s in section_versions.with_status(chain, changes)]
+
+
+def test_a_stay_persists_across_later_text_slices_until_lifted() -> None:
+    assert statuses([ruling("stayed", "2022-05-11")]) == [
+        ("1860-10-06", "unknown"), ("2013-02-03", "in_force"), ("2022-05-11", "stayed"),
+        ("2023-01-01", "stayed")]
+    assert statuses([ruling("stayed", "2022-05-11"), ruling("stay_lifted", "2023-06-01")]) == [
+        ("1860-10-06", "unknown"), ("2013-02-03", "in_force"), ("2022-05-11", "stayed"),
+        ("2023-01-01", "stayed"), ("2023-06-01", "in_force")]
+
+
+def test_a_strike_down_never_lifts() -> None:
+    assert statuses([ruling("struck_down", "2015-03-24"), ruling("stay_lifted", "2016-01-01")]) == [
+        ("1860-10-06", "unknown"), ("2013-02-03", "in_force"), ("2015-03-24", "struck_down"),
+        ("2016-01-01", "struck_down"), ("2023-01-01", "struck_down")]
+
+
+def test_as_of_comes_from_the_build_timestamp(tmp_path: Path) -> None:
+    # Same inputs, another --timestamp: the snapshot bound follows it (no clock).
+    input_dir = write_input_dir(load_fixture_rows(), tmp_path / "in")
+    run_build(input_dir, tmp_path / "out", timestamp="2030-05-06T00:00:00+00:00")
+    assert spans(BuildOutput(tmp_path / "out"), "A2023-45", "103")[-1][:2] == ("2030-05-06", None)
 
 
 def test_124a_is_stayed_from_2022_05_11_until_repeal(built_variant: BuildOutput) -> None:
