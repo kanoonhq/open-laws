@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JudicialEvent",
+  "description": "A court ruling that changes whether a provision is enforceable (PROCUREMENT_PLAN §2.2 Table 4), from curated/judicial_events.json",
+  "type": "object",
+  "required": [
+    "id", "act_id", "provision_path", "court", "case_name", "neutral_citation", "reported_citation",
+    "decision_date", "effect", "scope_note", "source_url"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^A[0-9]{4}-[0-9]+:je:[a-z0-9-]+:[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Deterministic ID {act_id}:je:{provision_path}:{decision_date} e.g. A2000-21:je:66a:2015-03-24"
+    },
+    "act_id": {
+      "type": "string",
+      "pattern": "^A[0-9]{4}-[0-9]+$",
+      "description": "Act containing the provision, resolved against the acts table"
+    },
+    "provision_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Section slug as in the sections table e.g. 66a, 124a"
+    },
+    "court": {"type": "string", "minLength": 1},
+    "case_name": {"type": "string", "minLength": 1},
+    "neutral_citation": {
+      "type": ["string", "null"],
+      "description": "Neutral citation e.g. 2023 INSC 1; null where none was assigned"
+    },
+    "reported_citation": {
+      "type": ["string", "null"],
+      "description": "Law report citation e.g. (2015) 5 SCC 1; null unless verified"
+    },
+    "decision_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "effect": {
+      "type": "string",
+      "enum": ["struck_down", "read_down", "stayed", "stay_lifted", "upheld"],
+      "description": "struck_down/stayed close the provision's in_force slice; read_down and upheld never change status"
+    },
+    "scope_note": {"type": ["string", "null"]},
+    "source_url": {
+      "type": ["string", "null"],
+      "pattern": "^https://",
+      "description": "Stable public page for the ruling"
+    }
+  }
+}

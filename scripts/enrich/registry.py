@@ -5,8 +5,11 @@ from __future__ import annotations
 
 from enrich import DerivedTable
 from enrich import events as events_stage
+from enrich import judicial_events as judicial_events_stage
+from enrich import jurisdictions as jurisdictions_stage
 
 DERIVED_TABLES: list[DerivedTable] = [
     events_stage.TABLE,
-    __import__("enrich.jurisdictions").jurisdictions.TABLE,
+    judicial_events_stage.TABLE,
+    jurisdictions_stage.TABLE,
 ]
