@@ -1,0 +1,63 @@
+# jurisdictions: one row per jurisdiction (PROCUREMENT_PLAN §2.2 Table 6; spec #10, ticket #13).
+# iso_3166_2_version: ISO 3166-2:IN as last changed by the ISO Online Browsing Platform change of 2023-11-23
+# iso_verified_on: 2026-10-25
+# iso_verified_against: https://en.wikipedia.org/wiki/ISO_3166-2:IN (current list and change history)
+#
+# Columns: lists (other_names, successor_of, inherited_laws_from, legal_basis) are "|"-separated.
+# - code: the ISO 3166-2:IN code for a current State or Union territory; IN-CENTRAL for the Union
+#   (as in indian_central_acts.jurisdiction); IN-HIST-* for a historical unit (no ISO code).
+# - valid_from: empty when the jurisdiction already existed before 1956-11-01 (the States
+#   Reorganisation Act's appointed day). Earlier history is not modelled.
+# - valid_to: empty while the jurisdiction exists.
+# - successor_of: the units it was formed from; inherited_laws_from: the units whose laws
+#   continued in (part of) its territory. Empty means no link is recorded.
+# - iso_status: verified (checked against the list above), unverified, or none (no ISO code).
+# - legal_basis: provisions of Acts in this corpus (act_id + provision) that establish the row.
+code,name,other_names,type,valid_from,valid_to,successor_of,inherited_laws_from,iso_status,legal_basis,source_url,notes
+IN-CENTRAL,Union of India,India,union,,,,,none,,https://www.indiacode.nic.in/,Central (Union) legislation.
+IN-AN,Andaman and Nicobar Islands,,union_territory,,,,,verified,,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-AP,Andhra Pradesh,,state,2014-06-02,,IN-HIST-AP,IN-HIST-AP,verified,A2014-6 s. 2(a)|A2014-6 s. 4,https://en.wikipedia.org/wiki/ISO_3166-2:IN,The residuary State of Andhra Pradesh after Telangana was formed.
+IN-AR,Arunachal Pradesh,,state,1972-01-21,,,,verified,A1971-81 s. 2(b)|A1971-81 s. 7,https://en.wikipedia.org/wiki/ISO_3166-2:IN,"Formed as a Union territory from tribal areas under the Sixth Schedule; a State from 1987-02-20."
+IN-AS,Assam,,state,,,,,verified,A1962-27 s. 3|A1971-81 s. 8,https://en.wikipedia.org/wiki/ISO_3166-2:IN,"Nagaland (1963), Meghalaya and Mizoram (1972) were formed from its territories."
+IN-BR,Bihar,,state,2000-11-15,,IN-HIST-BIHAR,IN-HIST-BIHAR,verified,A2000-30 s. 2(a),https://en.wikipedia.org/wiki/ISO_3166-2:IN,The residuary State of Bihar after Jharkhand was formed.
+IN-CH,Chandigarh,,union_territory,1966-11-01,,IN-HIST-PUNJAB,IN-HIST-PUNJAB,verified,A1966-31 s. 2(b)|A1966-31 s. 4,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-CG,Chhattisgarh,,state,2000-11-01,,IN-HIST-MP,IN-HIST-MP,verified,A2000-28 s. 2(a)|A2000-28 s. 3,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-DH,Dadra and Nagar Haveli and Daman and Diu,,union_territory,2020-01-26,,IN-HIST-DN|IN-HIST-DD,IN-HIST-DN|IN-HIST-DD,verified,A2019-44 s. 2(a)|A2019-44 s. 3,https://en.wikipedia.org/wiki/ISO_3166-2:IN,Merger of the Union territories of Dadra and Nagar Haveli and of Daman and Diu.
+IN-DL,Delhi,National Capital Territory of Delhi,union_territory,,,,,verified,,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-GA,Goa,,state,1987-05-30,,IN-HIST-GDD,IN-HIST-GDD,verified,A1987-18 s. 2(b)|A1987-18 s. 3,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-GJ,Gujarat,,state,1960-05-01,,IN-HIST-BOMBAY,IN-HIST-BOMBAY,verified,A1960-11 s. 2(a)|A1960-11 s. 3,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-HR,Haryana,,state,1966-11-01,,IN-HIST-PUNJAB,IN-HIST-PUNJAB,verified,A1966-31 s. 2(b)|A1966-31 s. 3,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-HP,Himachal Pradesh,,state,,,,IN-HIST-PUNJAB,verified,A1966-31 s. 5|A1970-53 s. 49,https://en.wikipedia.org/wiki/ISO_3166-2:IN,"A Union territory until statehood under A1970-53; territories of the existing State of Punjab were added on 1966-11-01 (A1966-31 s. 5)."
+IN-JK,Jammu and Kashmir,Union territory of Jammu and Kashmir,union_territory,2019-10-31,,IN-HIST-JK,IN-HIST-JK,verified,A2019-34 s. 2(a)|A2019-34 s. 4|A2019-34 s. 95,https://en.wikipedia.org/wiki/ISO_3166-2:IN,Laws of the existing State apply as provided in the Fifth Schedule (A2019-34 s. 95).
+IN-JH,Jharkhand,,state,2000-11-15,,IN-HIST-BIHAR,IN-HIST-BIHAR,verified,A2000-30 s. 2(a)|A2000-30 s. 3,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-KA,Karnataka,Mysore,state,1956-11-01,,,,verified,A1956-37 s. 2(a)|A1956-37 s. 7,https://en.wikipedia.org/wiki/ISO_3166-2:IN,"Formed as the new State of Mysore; renamed Karnataka from 1973-11-01. The units it was formed from are not modelled."
+IN-KL,Kerala,,state,1956-11-01,,,,verified,A1956-37 s. 2(a)|A1956-37 s. 5,https://en.wikipedia.org/wiki/ISO_3166-2:IN,The units it was formed from are not modelled.
+IN-LA,Ladakh,,union_territory,2019-10-31,,IN-HIST-JK,IN-HIST-JK,verified,A2019-34 s. 2(a)|A2019-34 s. 3|A2019-34 s. 95,https://en.wikipedia.org/wiki/ISO_3166-2:IN,Laws of the existing State apply as provided in the Fifth Schedule (A2019-34 s. 95).
+IN-LD,Lakshadweep,"Laccadive, Minicoy and Amindivi Islands",union_territory,1956-11-01,,,IN-TN,verified,A1956-37 s. 2(a)|A1956-37 s. 6,https://en.wikipedia.org/wiki/ISO_3166-2:IN,"Formed from islands of the State of Madras as the Laccadive, Minicoy and Amindivi Islands; renamed Lakshadweep from 1973-11-01."
+IN-MP,Madhya Pradesh,,state,2000-11-01,,IN-HIST-MP,IN-HIST-MP,verified,A2000-28 s. 2(a),https://en.wikipedia.org/wiki/ISO_3166-2:IN,The residuary State of Madhya Pradesh after Chhattisgarh was formed.
+IN-MH,Maharashtra,,state,1960-05-01,,IN-HIST-BOMBAY,IN-HIST-BOMBAY,verified,A1960-11 s. 2(a)|A1960-11 s. 4,https://en.wikipedia.org/wiki/ISO_3166-2:IN,The residuary State of Bombay renamed Maharashtra (A1960-11 s. 4).
+IN-MN,Manipur,,state,,,,,verified,A1971-81 s. 3,https://en.wikipedia.org/wiki/ISO_3166-2:IN,A Union territory until statehood on 1972-01-21 (A1971-81 s. 3).
+IN-ML,Meghalaya,,state,1972-01-21,,,IN-AS,verified,A1971-81 s. 2(b)|A1971-81 s. 5,https://en.wikipedia.org/wiki/ISO_3166-2:IN,Formed from the autonomous State of Meghalaya within Assam (A1969-55) and part of Shillong.
+IN-MZ,Mizoram,,state,1972-01-21,,,IN-AS,verified,A1971-81 s. 2(b)|A1971-81 s. 6,https://en.wikipedia.org/wiki/ISO_3166-2:IN,"Formed as a Union territory from the Mizo District of Assam; a State from 1987-02-20."
+IN-NL,Nagaland,,state,1963-12-01,,,IN-AS,verified,A1962-27 s. 3|A1962-27 s. 26,https://en.wikipedia.org/wiki/ISO_3166-2:IN,Formed from the Naga Hills-Tuensang Area of Assam.
+IN-OD,Odisha,Orissa,state,,,,,verified,A2011-15 s. 2(a),https://en.wikipedia.org/wiki/ISO_3166-2:IN,Renamed from Orissa from 2011-11-01.
+IN-PY,Puducherry,Pondicherry,union_territory,1962-08-16,,,,verified,A1962-49 s. 2(b)|A2006-44 s. 2(a),https://en.wikipedia.org/wiki/ISO_3166-2:IN,"The Treaty of Cession entered into force on 1962-08-16; renamed Puducherry from 2006-10-01."
+IN-PB,Punjab,,state,1966-11-01,,IN-HIST-PUNJAB,IN-HIST-PUNJAB,verified,A1966-31 s. 2(b),https://en.wikipedia.org/wiki/ISO_3166-2:IN,The residuary State of Punjab after Haryana and Chandigarh were formed.
+IN-RJ,Rajasthan,,state,,,,,verified,,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-SK,Sikkim,,state,1975-05-16,,,,verified,,https://en.wikipedia.org/wiki/ISO_3166-2:IN,"A State of India under the Constitution (Thirty-sixth Amendment) Act, 1975."
+IN-TN,Tamil Nadu,Madras,state,,,,,verified,,https://en.wikipedia.org/wiki/ISO_3166-2:IN,The State of Madras; renamed Tamil Nadu from 1969-01-14.
+IN-TS,Telangana,,state,2014-06-02,,IN-HIST-AP,IN-HIST-AP,verified,A2014-6 s. 2(a)|A2014-6 s. 3,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-TR,Tripura,,state,,,,,verified,A1971-81 s. 4,https://en.wikipedia.org/wiki/ISO_3166-2:IN,A Union territory until statehood on 1972-01-21 (A1971-81 s. 4).
+IN-UP,Uttar Pradesh,,state,2000-11-09,,IN-HIST-UP,IN-HIST-UP,verified,A2000-29 s. 2(a),https://en.wikipedia.org/wiki/ISO_3166-2:IN,The residuary State of Uttar Pradesh after Uttaranchal was formed.
+IN-UK,Uttarakhand,Uttaranchal,state,2000-11-09,,IN-HIST-UP,IN-HIST-UP,verified,A2000-29 s. 2(a)|A2000-29 s. 3|A2006-52 s. 2(a),https://en.wikipedia.org/wiki/ISO_3166-2:IN,Formed as Uttaranchal; renamed Uttarakhand from 2007-01-01.
+IN-WB,West Bengal,,state,,,,,verified,,https://en.wikipedia.org/wiki/ISO_3166-2:IN,
+IN-HIST-AP,Andhra Pradesh,Andhra,state,,2014-06-02,,,none,A1956-37 s. 3|A2014-6 s. 2(a),https://www.indiacode.nic.in/,"Undivided Andhra Pradesh: the State of Andhra, renamed Andhra Pradesh on 1956-11-01 when territories of Hyderabad were added (A1956-37 s. 3)."
+IN-HIST-BIHAR,Bihar,,state,,2000-11-15,,,none,A2000-30 s. 2(a),https://www.indiacode.nic.in/,Undivided Bihar.
+IN-HIST-BOMBAY,Bombay,Bombay State,state,1956-11-01,1960-05-01,,,none,A1956-37 s. 2(a)|A1956-37 s. 8|A1960-11 s. 2(a),https://www.indiacode.nic.in/,The new State of Bombay formed by A1956-37 s. 8. The earlier State of Bombay is not modelled.
+IN-HIST-DD,Daman and Diu,,union_territory,1987-05-30,2020-01-26,IN-HIST-GDD,IN-HIST-GDD,none,A1987-18 s. 2(b)|A1987-18 s. 4|A2019-44 s. 3,https://www.indiacode.nic.in/,
+IN-HIST-DN,Dadra and Nagar Haveli,,union_territory,1961-08-11,2020-01-26,,,none,A1961-35 s. 1|A2019-44 s. 3,https://www.indiacode.nic.in/,
+IN-HIST-GDD,"Goa, Daman and Diu",,union_territory,1961-12-20,1987-05-30,,,none,A1962-1 s. 2(b)|A1987-18 s. 2(b),https://www.indiacode.nic.in/,
+IN-HIST-JK,Jammu and Kashmir,State of Jammu and Kashmir,state,,2019-10-31,,,none,A2019-34 s. 2(a),https://www.indiacode.nic.in/,The State of Jammu and Kashmir. Its ISO code IN-JK passed to the Union territory (ISO OBP 2019-11-22).
+IN-HIST-MP,Madhya Pradesh,,state,1956-11-01,2000-11-01,,,none,A1956-37 s. 2(a)|A1956-37 s. 9|A2000-28 s. 2(a),https://www.indiacode.nic.in/,The new State of Madhya Pradesh formed by A1956-37 s. 9. The earlier State is not modelled.
+IN-HIST-PUNJAB,Punjab,,state,1956-11-01,1966-11-01,,,none,A1956-37 s. 2(a)|A1956-37 s. 11|A1966-31 s. 2(b),https://www.indiacode.nic.in/,The new State of Punjab formed by A1956-37 s. 11 (with PEPSU). The earlier State is not modelled.
+IN-HIST-UP,Uttar Pradesh,,state,,2000-11-09,,,none,A2000-29 s. 2(a),https://www.indiacode.nic.in/,Undivided Uttar Pradesh.

@@ -9,3 +9,10 @@ JSON files such as jurisdictions, ISO 3166-2:IN aliases and judicial events.
 
 Derived-table stage modules (`scripts/enrich/`) read these files through
 `enrich.CURATED_DIR`.
+
+## Files
+
+- `jurisdictions.csv` and `iso_aliases.csv` (ticket #13): built into
+  `jurisdictions.parquet` by `scripts/enrich/jurisdictions.py`. Their headers pin
+  the ISO 3166-2:IN version and the verification date; each row cites the corpus
+  provisions (`legal_basis`) that establish its dates and succession links.
