@@ -7,9 +7,11 @@ from enrich import DerivedTable
 from enrich import events as events_stage
 from enrich import judicial_events as judicial_events_stage
 from enrich import jurisdictions as jurisdictions_stage
+from enrich import state_amendments as state_amendments_stage
 
 DERIVED_TABLES: list[DerivedTable] = [
     events_stage.TABLE,
     judicial_events_stage.TABLE,
     jurisdictions_stage.TABLE,
+    state_amendments_stage.TABLE,
 ]
