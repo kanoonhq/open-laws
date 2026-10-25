@@ -4,18 +4,32 @@ Table 2). Bi-temporal slices of each section (language `en`), built from the
 sections, amendment_events and judicial_events tables. Wording and dates are
 never guessed:
 
-- Current slice: the section text verbatim (`verbatim_source`, confidence 1.0),
-  valid from the latest dated event linked to the section, else the Act's
-  assent_date. A section with neither gets no slice.
-- Earlier slices: one per earlier event date, walking back to assent_date; each
-  ends where the next begins and lists the events that opened it. The chain
-  stops (no earlier slice) at an undated event, since it cannot be placed in
-  time, at an event dated on or before assent_date, and where reversing an
-  insertion leaves no text (the section did not exist before it).
-- Reverse reconstruction, one level: the slice just before the current one is
-  `reconstructed` (confidence 0.8) only when every event that opened the
-  current slice is reversible, and every older slice is `unavailable` (null
-  text and heading). An event is reversible only when its single footnote is
+- Clean sections: a section is clean when its text has no inline marker (no
+  `N[`, `N***`, glued `N`, bare `* * *` or unmatched bracket) and its Act has
+  no unlinked (act_level) amendment event, so only events linked to it can
+  have changed it. Its current slice (`verbatim_source`, confidence 1.0) is
+  valid from its latest dated linked event, else from the Act's assent_date
+  (a clean section with neither gets no slice). Earlier slices: one per
+  earlier linked event date back to assent_date, each opened by its events
+  (status in_force, wording unavailable unless reconstructed).
+- Other sections: any amendment of the Act may have changed them, linked or
+  not. The verbatim slice is valid from the latest dated event of the whole
+  Act; the slice before it, from the Act's previous event date (or
+  assent_date), is reconstructed when the section's own events at that date
+  are reversible and no unlinked event shares it; everything earlier is one
+  `unknown` slice (status `unknown`, text unavailable) from assent_date.
+- Undated events: an undated event of the Act (any, for a non-clean section;
+  the section's own, for a clean one) can lie anywhere up to the source
+  snapshot, so the verbatim text is asserted only from `as_of` (the build's
+  export date, or the repeal_date of a repealed Act, after which its text
+  cannot change), with one `unknown` slice from assent_date before it. This
+  is the most conservative rule that keeps one slice per date: no text is
+  asserted before a date at which it can be shown to stand.
+- The chain also stops at an event dated on or before assent_date and where
+  reversing an insertion leaves no text (the section did not exist before).
+- Reverse reconstruction, one level: only the slice just before the verbatim
+  one is ever `reconstructed` (confidence 0.8); every older slice is
+  `unavailable` (null text and heading). An event is reversible only when its single footnote is
   `inline_marker`-linked, its number marks the section text exactly once, the
   marked span is not nested in, and does not contain, any other bracket or
   marker, and the operation, the footnote's verb, the quoted old_text and the
@@ -63,7 +77,9 @@ RECORDED_FROM = "v0.3.0"
 RECONSTRUCTED_CONFIDENCE = 0.8
 TEXT_STATUSES = ("verbatim_source", "reconstructed", "unavailable")
 STATUSES = ("in_force", "not_commenced", "repealed", "omitted", "expired", "struck_down", "stayed",
-            "ordinance_lapsed")
+            "ordinance_lapsed", "unknown")
+# Omitted text without a footnote number.
+BARE_STARS = re.compile(r"\*\s?\*\s?\*")
 # Judicial effect -> the status it opens; read_down and upheld change nothing.
 RULING_STATUS = {"struck_down": "struck_down", "stayed": "stayed", "stay_lifted": "in_force"}
 SOURCE_URL = (f"https://github.com/kanoonhq/open-laws/blob/{V011_COMMIT}/data/{SECTIONS}"
@@ -178,30 +194,62 @@ def reverse(text: str, events: tuple[Row, ...], footnotes: Mapping[str, Row]) ->
 # --- slices -----------------------------------------------------------------
 
 
-def text_chain(section: Row, assent: str | None, events: Rows,
-               footnotes: Mapping[str, Row]) -> list[Slice]:
-    """The section's wording slices, oldest first (statuses still in_force)."""
+def unmarked(text: str | None) -> bool:
+    """True when text carries no inline footnote marker, no bare `* * *` and
+    only balanced brackets (an unmatched `]` closes a marker outside the text)."""
+    if not text:
+        return True
+    if markers(text) or BARE_STARS.search(text):
+        return False
+    depth = 0
+    for ch in text:
+        depth += (ch == "[") - (ch == "]")
+        if depth < 0:
+            return False
+    return depth == 0
+
+
+@dataclass(frozen=True)
+class Context:
+    """What bounds one section's slices."""
+
+    assent: str | None
+    as_of: str  # the date the verbatim text is asserted at, at the latest
+    own: Rows  # amendment events linked to the section
+    act: Rows  # every amendment event of the Act (not its repeal)
+    unlinked: Rows  # the Act's events linked to no section
+    clean: bool
+
+
+def verbatim(text: str | None, start: str, events: tuple[Row, ...] = ()) -> Slice:
+    return Slice(start, text, "verbatim_source" if text else "unavailable", 1.0 if text else 0.0, events)
+
+
+def unknown(start: str) -> Slice:
+    return Slice(start, None, "unavailable", 0.0, status="unknown", heading_known=False)
+
+
+def after_unknown(ctx: Context, first: list[Slice]) -> list[Slice]:
+    """first, preceded by an `unknown` slice back to assent_date where it starts later."""
+    if ctx.assent is not None and ctx.assent < first[0].valid_from:
+        return [unknown(ctx.assent), *first]
+    return first
+
+
+def clean_chain(text: str | None, ctx: Context, footnotes: Mapping[str, Row]) -> list[Slice]:
+    """A clean section: only its own linked events can have changed it."""
     by_date: dict[str, list[Row]] = defaultdict(list)
-    for e in events:
+    for e in ctx.own:
         if e["wef_date"] is not None:
             by_date[e["wef_date"]].append(e)
     dates = sorted(by_date)
-    text = section["full_text"]
-    if dates:
-        current = Slice(dates[-1], text, "verbatim_source" if text else "unavailable",
-                        1.0 if text else 0.0, tuple(by_date[dates[-1]]))
-    elif assent is not None:
-        current = Slice(assent, text, "verbatim_source" if text else "unavailable", 1.0 if text else 0.0)
-    else:
-        return []  # valid_from is unknown
-    undated = any(e["wef_date"] is None for e in events)
-    if not dates or undated or (assent is not None and dates[0] <= assent):
+    if not dates:
+        return [verbatim(text, ctx.assent)] if ctx.assent is not None else []
+    current = verbatim(text, dates[-1], tuple(by_date[dates[-1]]))
+    if ctx.assent is None or dates[0] <= ctx.assent:
         return [current]
-    starts = ([assent] if assent is not None else []) + dates[:-1]
-    if not starts:
-        return [current]  # no assent date: nothing is known before the event
     earlier = [Slice(start, None, "unavailable", 0.0, tuple(by_date.get(start, ())), heading_known=False)
-               for start in starts]
+               for start in [ctx.assent, *dates[:-1]]]
     previous = reverse(text, current.events, footnotes) if text else None
     if previous is not None:
         if not previous.strip():
@@ -209,6 +257,37 @@ def text_chain(section: Row, assent: str | None, events: Rows,
         earlier[-1] = replace(earlier[-1], full_text=previous, text_status="reconstructed",
                               confidence=RECONSTRUCTED_CONFIDENCE, heading_known=True)
     return [*earlier, current]
+
+
+def text_chain(section: Row, ctx: Context, footnotes: Mapping[str, Row]) -> list[Slice]:
+    """The section's wording slices, oldest first (statuses in_force or unknown)."""
+    text = section["full_text"]
+    if any(e["wef_date"] is None for e in ctx.own):
+        # An undated event on the section: the verbatim text holds from as_of only.
+        return after_unknown(ctx, [verbatim(text, ctx.as_of)])
+    if ctx.clean:
+        return clean_chain(text, ctx, footnotes)
+    if any(e["wef_date"] is None for e in ctx.act):
+        return after_unknown(ctx, [verbatim(text, ctx.as_of)])
+    dates = sorted({e["wef_date"] for e in ctx.act})
+    if not dates:  # marked, but the Act records no amendment: unplaceable
+        return after_unknown(ctx, [verbatim(text, ctx.as_of)])
+    latest = dates[-1]
+    own_at = tuple(e for e in ctx.own if e["wef_date"] == latest)
+    current = verbatim(text, latest, own_at + tuple(e for e in ctx.unlinked if e["wef_date"] == latest))
+    if ctx.assent is not None and latest <= ctx.assent:
+        return [current]
+    prev = dates[-2] if len(dates) > 1 else ctx.assent
+    reversible = own_at and text and prev is not None and \
+        not any(e["wef_date"] == latest for e in ctx.unlinked)
+    previous = reverse(text, own_at, footnotes) if reversible else None
+    if previous is None:
+        return after_unknown(ctx, [current])
+    if not previous.strip():
+        return [current]  # the section did not exist before the insertion
+    opened = tuple(e for e in (*ctx.own, *ctx.unlinked) if e["wef_date"] == prev)
+    rebuilt = Slice(prev, previous, "reconstructed", RECONSTRUCTED_CONFIDENCE, opened)
+    return after_unknown(ctx, [rebuilt, current])
 
 
 def with_status(chain: list[Slice], changes: list[tuple[str, str, Row]]) -> list[Slice]:
@@ -290,16 +369,28 @@ def build(tables: Mapping[str, Rows]) -> Rows:
         rulings[(j["act_id"], j["provision_path"])].append(j)
     info = tables[BUILD_INFO][0]
 
+    act_events: dict[str, Rows] = defaultdict(list)
+    for e in tables[events_stage.FILE]:
+        if e["operation"] != "repeal":
+            act_events[e["act_id"]].append(e)
+    build_date = info["export_timestamp"][:10]
+
     rows: Rows = []
     for section in tables[SECTIONS]:
         key = (section["act_id"], section["slug"])
         act = acts[section["act_id"]]
         changes = [(j["decision_date"], RULING_STATUS[j["effect"]], j)
                    for j in rulings[key] if j["effect"] in RULING_STATUS]
-        if act["is_repealed"] and act["repeal_date"] and section["act_id"] in repeals:
+        repealed = act["is_repealed"] and act["repeal_date"]
+        if repealed and section["act_id"] in repeals:
             changes.append((act["repeal_date"], "repealed", repeals[section["act_id"]]))
-        chain = with_status(text_chain(section, act["assent_date"], events[key], footnotes), changes)
-        rows += rows_for(section, chain, info)
+        unlinked = [e for e in act_events[section["act_id"]] if not e["provisions_affected"]]
+        ctx = Context(assent=act["assent_date"],
+                      as_of=min(build_date, act["repeal_date"]) if repealed else build_date,
+                      own=[e for e in events[key] if e["operation"] != "repeal"],
+                      act=act_events[section["act_id"]], unlinked=unlinked,
+                      clean=not unlinked and unmarked(section["full_text"]))
+        rows += rows_for(section, with_status(text_chain(section, ctx, footnotes), changes), info)
     return rows
 
 

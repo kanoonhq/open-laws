@@ -38,7 +38,8 @@
     "status": {
       "type": "string",
       "enum": ["in_force", "not_commenced", "repealed", "omitted", "expired", "struck_down", "stayed",
-               "ordinance_lapsed"]
+               "ordinance_lapsed", "unknown"],
+      "description": "unknown: an interval before the first date the section's wording can be asserted (an amendment of the Act, linked or not, or an undated one, may lie in it); its text is unavailable"
     },
     "text_status": {"type": "string", "enum": ["verbatim_source", "reconstructed", "unavailable"]},
     "confidence": {

@@ -1,7 +1,9 @@
 """indian_act_section_versions (ticket #15): bi-temporal section slices built
-through the derived-table registry. The current slice is verbatim; earlier
+through the derived-table registry. The current slice is verbatim, valid only
+from a date its wording can be shown to stand (assent_date for a clean
+section, else the Act's latest amendment, else the source snapshot); earlier
 slices are reverse-reconstructed only when every footnote is unambiguous,
-else unavailable; judicial rulings and Act repeals split the chain."""
+else unavailable or `unknown`; judicial rulings and Act repeals split the chain."""
 
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ from conftest import (
 )
 
 VERSIONS = "indian_act_section_versions.parquet"
+AS_OF = FIXED_TIMESTAMP[:10]  # the build's export date: the source snapshot
 
 
 def slices(output: BuildOutput, act_id: str, slug: str) -> list[dict]:
@@ -28,10 +31,106 @@ def slices(output: BuildOutput, act_id: str, slug: str) -> list[dict]:
     return sorted(rows, key=lambda v: v["version_number"])
 
 
-def test_insertion_is_reversed_in_the_earlier_slice(built: BuildOutput) -> None:
+def spans(output: BuildOutput, act_id: str, slug: str) -> list[tuple]:
+    return [(v["valid_from"], v["valid_to"], v["status"], v["text_status"])
+            for v in slices(output, act_id, slug)]
+
+
+def drop_footnotes(tables: dict[str, Rows], *ids: str) -> dict[str, Rows]:
+    tables["footnotes"] = [f for f in tables["footnotes"] if f["id"] not in ids]
+    return tables
+
+
+def anand_only(tables: dict[str, Rows]) -> dict[str, Rows]:
+    """The fixtures with the Anand Marriage Act's only amendment the s. 2 insertion
+    "3. Ins. by Act 29 of 2012, s. 2 (w.e.f. 1-11-2013)."."""
+    return drop_footnotes(tables, "A1909-7:Page 2:0", "A1909-7:Page 2:1", "A1909-7:Page 2:3")
+
+
+def retyped(tables: dict[str, Rows], footnote_id: str, **fields: object) -> dict[str, Rows]:
+    tables["footnotes"] = [{**f, **fields} if f["id"] == footnote_id else f for f in tables["footnotes"]]
+    return tables
+
+
+def with_text(tables: dict[str, Rows], section_id: str, text: str) -> dict[str, Rows]:
+    tables["sections"] = [{**s, "full_text": text} if s["id"] == section_id else s for s in tables["sections"]]
+    return tables
+
+
+# --- clean sections -------------------------------------------------------------
+
+
+def test_clean_section_is_verbatim_from_assent(built: BuildOutput) -> None:
+    # BSA s. 6: no inline markers, and the Act has no unlinked amendment.
+    (v,) = slices(built, "A2023-47", "6")
+    assert (v["valid_from"], v["valid_to"], v["status"], v["text_status"]) == (
+        "2023-12-25", None, "in_force", "verbatim_source")
+    assert (v["confidence"], v["amendment_event_ids"]) == (1.0, [])
+
+
+def test_clean_section_of_an_act_without_assent_date_gets_no_slice(tmp_path: Path) -> None:
+    tables = load_fixture_rows()
+    tables["acts"] = [{**a, "enactment_date": None} if a["act_id"] == "A2023-47" else a for a in tables["acts"]]
+    output = build_fixtures(tmp_path, tables)
+    assert slices(output, "A2023-47", "6") == []
+    assert output.manifest()["coverage"]["section_versions_sections"] == len(output.table("sections")) - 1
+
+
+# --- sections that unlinked or other events may have changed --------------------
+
+
+def test_unlinked_undated_event_asserts_text_only_from_the_snapshot(built: BuildOutput) -> None:
+    # BNS s. 103 has no markers, but the BNS has an undated act_level footnote.
+    assert spans(built, "A2023-45", "103") == [
+        ("2023-12-25", AS_OF, "unknown", "unavailable"), (AS_OF, None, "in_force", "verbatim_source")]
+    unknown = slices(built, "A2023-45", "103")[0]
+    assert (unknown["full_text"], unknown["heading"], unknown["confidence"]) == (None, None, 0.0)
+
+
+def test_marked_section_is_verbatim_from_the_acts_latest_event(built: BuildOutput) -> None:
+    # Anand Marriage Act s. 3 has no event of its own, but the Act's latest
+    # amendment (to s. 1, w.e.f. 31-10-2019) bounds every non-clean section.
+    assert spans(built, "A1909-7", "3") == [
+        ("1909-10-22", "2019-10-31", "unknown", "unavailable"),
+        ("2019-10-31", None, "in_force", "verbatim_source")]
+
+
+def test_unlinked_event_on_the_same_date_blocks_reconstruction(built: BuildOutput) -> None:
+    # s. 2's insertion (w.e.f. 1-11-2013) shares its date with an act_level
+    # footnote, and the Act was amended again in 2019: no wording before 2019.
+    assert spans(built, "A1909-7", "2") == [
+        ("1909-10-22", "2019-10-31", "unknown", "unavailable"),
+        ("2019-10-31", None, "in_force", "verbatim_source")]
+
+
+def test_undated_events_of_a_repealed_act_bound_it_at_repeal(built: BuildOutput) -> None:
+    # The IPC has undated amendments; its text cannot change after repeal, so
+    # the verbatim text stands from 2024-07-01 and nothing before is asserted.
+    for slug in ("1", "302"):
+        assert spans(built, "A1860-45", slug) == [
+            ("1860-10-06", "2024-07-01", "unknown", "unavailable"),
+            ("2024-07-01", None, "repealed", "verbatim_source")]
+
+
+def test_an_undated_event_on_the_section_stops_the_chain(tmp_path: Path) -> None:
+    # A clean Act whose only amendment is undated: no date is assumed for it.
+    tables = retyped(anand_only(load_fixture_rows()), "A1909-7:Page 2:2", wef_date=None,
+                     raw_text="3. Ins. by Act 29 of 2012, s. 2.")
+    assert spans(build_fixtures(tmp_path, tables), "A1909-7", "2") == [
+        ("1909-10-22", AS_OF, "unknown", "unavailable"), (AS_OF, None, "in_force", "verbatim_source")]
+
+
+# --- reverse reconstruction ------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def built_anand(tmp_path_factory: pytest.TempPathFactory) -> BuildOutput:
+    return build_fixtures(tmp_path_factory.mktemp("anand"), anand_only(load_fixture_rows()))
+
+
+def test_insertion_is_reversed_in_the_earlier_slice(built_anand: BuildOutput) -> None:
     # Anand Marriage Act s. 2: "Anand 3[(commonly known as Anand Karaj)] shall be, ..."
-    # with "3. Ins. by Act 29 of 2012, s. 2 (w.e.f. 1-11-2013)."
-    before, current = slices(built, "A1909-7", "2")
+    before, current = slices(built_anand, "A1909-7", "2")
     assert (current["valid_from"], current["valid_to"]) == ("2013-11-01", None)
     assert (current["text_status"], current["confidence"]) == ("verbatim_source", 1.0)
     assert "Anand 3[(commonly known as Anand Karaj)] shall be" in current["full_text"]
@@ -47,7 +146,61 @@ def test_insertion_is_reversed_in_the_earlier_slice(built: BuildOutput) -> None:
     assert [v["status"] for v in (before, current)] == ["in_force", "in_force"]
 
 
-# --- fixture variants ---------------------------------------------------------
+def test_omission_is_restored_from_the_quoted_words(tmp_path: Path) -> None:
+    # Anand Marriage Act s. 1 "(2) Its extends to the whole of India 2***." with
+    # "2. The words “except the State of Jammu and Kashmir” omitted by Act 34 of
+    # 2019 ... (w.e.f. 31-10- 2019)", which v0.1.1 typed `other`; typed omission:
+    tables = retyped(load_fixture_rows(), "A1909-7:Page 2:1", amendment_type="omission")
+    output = build_fixtures(tmp_path, tables)
+    unknown, before, current = slices(output, "A1909-7", "1")
+    assert before["full_text"].endswith(
+        "(2) Its extends to the whole of India except the State of Jammu and Kashmir.")
+    # From the Act's previous amendment date (w.e.f. 1-11-2013) only.
+    assert (before["text_status"], before["valid_from"], before["valid_to"]) == (
+        "reconstructed", "2013-11-01", "2019-10-31")
+    assert (unknown["valid_from"], unknown["status"]) == ("1909-10-22", "unknown")
+    assert current["full_text"].endswith("the whole of India 2***.")
+
+
+def test_operation_disagreeing_with_the_marker_is_unavailable(built: BuildOutput) -> None:
+    # The same omission as v0.1.1 typed it (`other`): not reversible.
+    assert spans(built, "A1909-7", "1") == [
+        ("1909-10-22", "2019-10-31", "unknown", "unavailable"),
+        ("2019-10-31", None, "in_force", "verbatim_source")]
+
+
+def test_insertion_footnote_quoting_old_words_is_unavailable(tmp_path: Path) -> None:
+    # v0.1.1 typed some substitutions `insertion`; the quoted words then disagree with `N[`.
+    tables = retyped(anand_only(load_fixture_rows()), "A1909-7:Page 2:2",
+                     raw_text="3. Subs. by Act 29 of 2012, s. 2, for “(Anand)” (w.e.f. 1-11-2013).")
+    before, _ = slices(build_fixtures(tmp_path, tables), "A1909-7", "2")
+    assert (before["text_status"], before["full_text"]) == ("unavailable", None)
+
+
+def test_nested_brackets_stay_unavailable(tmp_path: Path) -> None:
+    tables = anand_only(load_fixture_rows())
+    text = next(s["full_text"] for s in tables["sections"] if s["id"] == "A1909-7:2")
+    tables = with_text(tables, "A1909-7:2", text.replace("Anand 3[(commonly known as Anand Karaj)]",
+                                                         "Anand 3[(commonly known as [Anand Karaj])]"))
+    before, current = slices(build_fixtures(tmp_path, tables), "A1909-7", "2")
+    assert (before["text_status"], before["full_text"]) == ("unavailable", None)
+    assert current["text_status"] == "verbatim_source"
+
+
+def test_reversal_leaves_no_stray_whitespace(tmp_path: Path) -> None:
+    tables = with_text(anand_only(load_fixture_rows()), "A1909-7:2",
+                       "called Anand 3[(commonly known as Anand Karaj)]\n")
+    tables = retyped(tables, "A1909-7:Page 2:2", amendment_type="substitution",
+                     raw_text="3. Subs. by Act 29 of 2012, s. 2, for “, Karaj” (w.e.f. 1-11-2013).")
+    before, _ = slices(build_fixtures(tmp_path / "subs", tables), "A1909-7", "2")
+    assert before["full_text"] == "called Anand, Karaj\n"  # no space left before the comma
+    tables = retyped(tables, "A1909-7:Page 2:2", amendment_type="insertion",
+                     raw_text="3. Ins. by Act 29 of 2012, s. 2 (w.e.f. 1-11-2013).")
+    before, _ = slices(build_fixtures(tmp_path / "ins", tables), "A1909-7", "2")
+    assert before["full_text"] == "called Anand"  # no trailing space or line
+
+
+# --- IPC / IT Act variant ----------------------------------------------------------
 
 IPC_376 = ("(1) Whoever, except in the cases provided for in sub-section (2), commits rape, shall be "
            "punished with rigorous imprisonment of either description for a term which 2[shall not be "
@@ -58,6 +211,8 @@ IPC_124A = ("Whoever by words, either spoken or written, or by signs, or by visi
             "excite disaffection towards, the Government established by law in India, shall be punished "
             "with imprisonment for life, to which fine may be added, or with imprisonment which may "
             "extend to three years, to which fine may be added, or with fine.")
+# s. 66A as India Code prints it: the marker of the 2009 insertion sits before
+# the section, so only its closing bracket is in the text.
 IT_66A = ("Any person who sends, by means of a computer resource or a communication device,–\n(a) any "
           "information that is grossly offensive or has menacing character; or\nshall be punishable with "
           "imprisonment for a term which may extend to three years and with fine.]")
@@ -76,10 +231,10 @@ def footnote(base: dict, act_id: str, page: str, number: int, text: str, kind: s
 
 
 def variant() -> dict[str, Rows]:
-    """The fixtures plus IPC ss. 124A and 376 (s. 376 with a synthetic dated
-    substitution quoting the replaced words, modelled on the real 2018
-    footnote), a dated substitution footnote for IPC s. 302, and a stub
-    Information Technology Act, 2000 with s. 66A."""
+    """The fixtures with the IPC's (undated) footnote pages replaced by two
+    dated substitutions (s. 302, 1956; s. 376, 2013, synthetic, modelled on the
+    real 2018 footnote), IPC ss. 124A and 376 added, and a stub Information
+    Technology Act, 2000 with s. 66A and no footnotes."""
     tables = load_fixture_rows()
     s0, f0 = tables["sections"][0], tables["footnotes"][0]
     it_act = {**tables["acts"][0], "act_id": "A2000-21", "act_number": "ACT NO. 21 OF 2000",
@@ -88,7 +243,8 @@ def variant() -> dict[str, Rows]:
               "section_count": 1, "footnote_count": 0}
     ipc = next(a for a in tables["acts"] if a["act_id"] == "A1860-45")
     ipc["section_count"] += 2
-    ipc["footnote_count"] += 2
+    tables["footnotes"] = [f for f in tables["footnotes"] if f["act_id"] != "A1860-45"]
+    ipc["footnote_count"] = 2
     s302 = next(s for s in tables["sections"] if s["id"] == "A1860-45:302")
     at = tables["sections"].index(s302)
     tables["sections"][at:at + 1] = [
@@ -115,15 +271,12 @@ def built_variant(tmp_path_factory: pytest.TempPathFactory) -> BuildOutput:
     return build_fixtures(tmp_path_factory.mktemp("versions"), variant())
 
 
-def retyped(tables: dict[str, Rows], footnote_id: str, **fields: object) -> dict[str, Rows]:
-    tables["footnotes"] = [{**f, **fields} if f["id"] == footnote_id else f for f in tables["footnotes"]]
-    return tables
-
-
 def test_ipc_376_pre_2013_slice_is_reconstructed_from_the_quoted_text(built_variant: BuildOutput) -> None:
-    before, current, repealed = slices(built_variant, "A1860-45", "376")
-    assert [(v["valid_from"], v["valid_to"]) for v in (before, current, repealed)] == [
-        ("1860-10-06", "2013-02-03"), ("2013-02-03", "2024-07-01"), ("2024-07-01", None)]
+    unknown, before, current, repealed = slices(built_variant, "A1860-45", "376")
+    assert [(v["valid_from"], v["valid_to"]) for v in (unknown, before, current, repealed)] == [
+        ("1860-10-06", "1956-01-01"), ("1956-01-01", "2013-02-03"), ("2013-02-03", "2024-07-01"),
+        ("2024-07-01", None)]
+    assert (unknown["status"], unknown["text_status"]) == ("unknown", "unavailable")
     assert before["text_status"] == "reconstructed"
     assert before["full_text"].endswith(
         "for a term which shall not be less than seven years, but which may extend to imprisonment for "
@@ -134,75 +287,13 @@ def test_ipc_376_pre_2013_slice_is_reconstructed_from_the_quoted_text(built_vari
     assert current["text_status"] == "verbatim_source"
 
 
-def test_substitution_reversed_and_marker_stripped(built_variant: BuildOutput) -> None:
-    before, current, _ = slices(built_variant, "A1860-45", "302")
-    assert before["full_text"] == ("Whoever commits murder shall be punished with death or transportation "
-                                   "for life, and shall also be liable to fine.")
-    assert (before["valid_to"], current["valid_from"]) == ("1956-01-01", "1956-01-01")
-
-
-def test_omission_is_restored_from_the_quoted_words(tmp_path: Path) -> None:
-    # Anand Marriage Act s. 1 "(2) Its extends to the whole of India 2***." with
-    # "2. The words “except the State of Jammu and Kashmir” omitted by Act 34 of
-    # 2019 ... (w.e.f. 31-10- 2019)", which v0.1.1 typed `other`; typed omission:
-    tables = retyped(load_fixture_rows(), "A1909-7:Page 2:1", amendment_type="omission")
-    before, current = slices(build_fixtures(tmp_path, tables), "A1909-7", "1")
-    assert before["full_text"].endswith(
-        "(2) Its extends to the whole of India except the State of Jammu and Kashmir.")
-    assert (before["text_status"], before["valid_to"]) == ("reconstructed", "2019-10-31")
-    assert current["full_text"].endswith("the whole of India 2***.")
-
-
-def test_operation_disagreeing_with_the_marker_is_unavailable(built: BuildOutput) -> None:
-    # The same omission as v0.1.1 typed it (`other`): not reversible.
-    before, current = slices(built, "A1909-7", "1")
-    assert (before["valid_from"], before["valid_to"]) == ("1909-10-22", "2019-10-31")
-    assert (before["text_status"], before["full_text"], before["heading"]) == ("unavailable", None, None)
-    assert before["confidence"] == 0.0
-    assert current["text_status"] == "verbatim_source"
-
-
-def test_insertion_footnote_quoting_old_words_is_unavailable(tmp_path: Path) -> None:
-    # v0.1.1 typed some substitutions `insertion`; the quoted words then disagree with `N[`.
-    tables = retyped(load_fixture_rows(), "A1909-7:Page 2:2",
-                     raw_text="3. Subs. by Act 29 of 2012, s. 2, for “(Anand)” (w.e.f. 1-11-2013).")
-    before, _ = slices(build_fixtures(tmp_path, tables), "A1909-7", "2")
-    assert (before["text_status"], before["full_text"]) == ("unavailable", None)
-
-
-def test_nested_brackets_stay_unavailable(tmp_path: Path) -> None:
-    tables = load_fixture_rows()
-    tables["sections"] = [
-        {**s, "full_text": s["full_text"].replace("Anand 3[(commonly known as Anand Karaj)]",
-                                                  "Anand 3[(commonly known as [Anand Karaj])]")}
-        if s["id"] == "A1909-7:2" else s for s in tables["sections"]]
-    before, current = slices(build_fixtures(tmp_path, tables), "A1909-7", "2")
-    assert (before["text_status"], before["full_text"]) == ("unavailable", None)
-    assert current["text_status"] == "verbatim_source"
-
-
-def test_reversal_leaves_no_stray_whitespace(tmp_path: Path) -> None:
-    tables = load_fixture_rows()
-    tables["sections"] = [{**s, "full_text": "called Anand 3[(commonly known as Anand Karaj)]\n"}
-                          if s["id"] == "A1909-7:2" else s for s in tables["sections"]]
-    tables = retyped(tables, "A1909-7:Page 2:2", amendment_type="substitution",
-                     raw_text="3. Subs. by Act 29 of 2012, s. 2, for “, Karaj” (w.e.f. 1-11-2013).")
-    before, _ = slices(build_fixtures(tmp_path / "subs", tables), "A1909-7", "2")
-    assert before["full_text"] == "called Anand, Karaj\n"  # no space left before the comma
-    tables = retyped(tables, "A1909-7:Page 2:2", amendment_type="insertion",
-                     raw_text="3. Ins. by Act 29 of 2012, s. 2 (w.e.f. 1-11-2013).")
-    before, _ = slices(build_fixtures(tmp_path / "ins", tables), "A1909-7", "2")
-    assert before["full_text"] == "called Anand"  # no trailing space or line
-
-
-def test_an_undated_event_stops_the_chain(built: BuildOutput) -> None:
-    # IPC s. 1 has a dated omission (w.e.f. 31-10-2019) and undated amendments
-    # ("3. The Original words have successively been amended by ..."): no slice
-    # before 2019-10-31 is emitted, and no date is assumed for the undated ones.
-    current, repealed = slices(built, "A1860-45", "1")
-    assert (current["valid_from"], current["valid_to"]) == ("2019-10-31", "2024-07-01")
-    assert current["version_number"] == 1
-    assert repealed["status"] == "repealed"
+def test_another_sections_later_amendment_bounds_the_verbatim_slice(built_variant: BuildOutput) -> None:
+    # s. 302's own 1956 substitution is reversible, but the IPC was amended
+    # again in 2013 (s. 376): its wording is asserted from 2013-02-03 only.
+    assert spans(built_variant, "A1860-45", "302") == [
+        ("1860-10-06", "2013-02-03", "unknown", "unavailable"),
+        ("2013-02-03", "2024-07-01", "in_force", "verbatim_source"),
+        ("2024-07-01", None, "repealed", "verbatim_source")]
 
 
 def test_ipc_gets_a_repealed_slice_from_2024_07_01(built: BuildOutput) -> None:
@@ -210,22 +301,31 @@ def test_ipc_gets_a_repealed_slice_from_2024_07_01(built: BuildOutput) -> None:
     assert (last["valid_from"], last["valid_to"], last["status"]) == ("2024-07-01", None, "repealed")
     assert last["amendment_event_ids"] == ["A1860-45:ev:A2023-45:repeal"]
     assert last["amended_by_act_id"] == "A2023-45"
-    assert all(v["status"] == "in_force" for v in slices(built, "A2023-45", "103"))
 
 
-def test_66a_is_struck_down_from_2015_03_24(built_variant: BuildOutput) -> None:
-    enacted, struck = slices(built_variant, "A2000-21", "66a")
-    assert (enacted["valid_from"], enacted["valid_to"], enacted["status"]) == (
-        "2000-06-09", "2015-03-24", "in_force")
-    assert (struck["valid_from"], struck["valid_to"], struck["status"]) == ("2015-03-24", None, "struck_down")
-    assert struck["full_text"] == IT_66A
+def test_66a_shows_no_verbatim_text_before_its_insertion(built_variant: BuildOutput) -> None:
+    # The unmatched `]` shows s. 66A was inserted by an amendment the stub Act
+    # does not record: nothing is asserted before the snapshot, and the ruling
+    # still marks it struck down from 2015-03-24.
+    assert spans(built_variant, "A2000-21", "66a") == [
+        ("2000-06-09", "2015-03-24", "unknown", "unavailable"),
+        ("2015-03-24", AS_OF, "struck_down", "unavailable"),
+        (AS_OF, None, "struck_down", "verbatim_source")]
+    _, struck, current = slices(built_variant, "A2000-21", "66a")
     assert struck["amendment_event_ids"] == ["A2000-21:je:66a:2015-03-24"]
     assert struck["change_summary"] == "Struck down: Shreya Singhal v. Union of India, Supreme Court of India"
+    assert (struck["full_text"], current["full_text"]) == (None, IT_66A)
 
 
 def test_124a_is_stayed_from_2022_05_11_until_repeal(built_variant: BuildOutput) -> None:
-    assert [(v["valid_from"], v["status"]) for v in slices(built_variant, "A1860-45", "124a")] == [
-        ("1860-10-06", "in_force"), ("2022-05-11", "stayed"), ("2024-07-01", "repealed")]
+    # Clean here: no markers, and every IPC amendment in the variant is linked.
+    assert spans(built_variant, "A1860-45", "124a") == [
+        ("1860-10-06", "2022-05-11", "in_force", "verbatim_source"),
+        ("2022-05-11", "2024-07-01", "stayed", "verbatim_source"),
+        ("2024-07-01", None, "repealed", "verbatim_source")]
+
+
+# --- table-wide ----------------------------------------------------------------------
 
 
 def test_provenance_fields(built: BuildOutput) -> None:
@@ -244,8 +344,9 @@ def point_in_time(rows: Rows, act_id: str, slug: str, day: str) -> Rows:
             and (v["valid_to"] is None or v["valid_to"] > day) and v["recorded_to"] is None]
 
 
-def test_point_in_time_query_returns_exactly_one_row_per_date(built_variant: BuildOutput) -> None:
-    rows = built_variant.table(VERSIONS)
+@pytest.mark.parametrize("which", ["built", "built_variant", "built_anand"])
+def test_point_in_time_query_returns_exactly_one_row_per_date(which: str, request: pytest.FixtureRequest) -> None:
+    rows = request.getfixturevalue(which).table(VERSIONS)
     for act_id, slug in {(v["act_id"], v["slug"]) for v in rows}:
         mine = [v for v in rows if (v["act_id"], v["slug"]) == (act_id, slug)]
         first = min(v["valid_from"] for v in mine)
@@ -254,29 +355,26 @@ def test_point_in_time_query_returns_exactly_one_row_per_date(built_variant: Bui
         days |= {(date.fromisoformat(d) - timedelta(days=1)).isoformat() for d in set(days)}
         for day in sorted(d for d in days if d >= first):
             assert len(point_in_time(rows, act_id, slug, day)) == 1, (act_id, slug, day)
+
+
+def test_point_in_time_query_on_ipc_376(built_variant: BuildOutput) -> None:
+    rows = built_variant.table(VERSIONS)
     assert point_in_time(rows, "A1860-45", "376", "2000-08-15")[0]["text_status"] == "reconstructed"
+    assert point_in_time(rows, "A1860-45", "376", "1950-01-01")[0]["status"] == "unknown"
 
 
 def test_manifest_counts_slices_by_text_status_and_status(built: BuildOutput) -> None:
     rows, coverage = built.table(VERSIONS), built.manifest()["coverage"]
-    assert coverage["section_versions_sections"] == len(built.table("sections"))
-    # 15 current slices, plus the 7 repealed slices (IPC 6, Evidence Act 1) that keep their wording.
+    assert coverage["section_versions_sections"] == len(built.table("sections")) == 15
+    # Anand 6 x (unknown + verbatim), IPC 6 x (unknown + repealed verbatim),
+    # Evidence s. 8 (clean: verbatim + repealed verbatim), BNS s. 103 (unknown +
+    # verbatim), BSA s. 6 (clean: verbatim).
+    assert len(rows) == 12 + 12 + 2 + 2 + 1
     assert coverage["section_versions_by_text_status"] == {
-        "verbatim_source": 15 + 7, "reconstructed": 1,  # A1909-7 s. 2
-        "unavailable": 1}  # A1909-7 s. 1 before 2019-10-31
+        "verbatim_source": 16, "reconstructed": 0, "unavailable": 13}
     assert coverage["section_versions_by_status"] == {
-        "in_force": 17, "not_commenced": 0, "repealed": 7, "omitted": 0, "expired": 0,
-        "struck_down": 0, "stayed": 0, "ordinance_lapsed": 0}
-    assert len(rows) == 24
-
-
-def test_section_of_an_act_without_any_date_gets_no_slice(tmp_path: Path) -> None:
-    tables = load_fixture_rows()
-    tables["acts"] = [{**a, "enactment_date": None} if a["act_id"] == "A1909-7" else a for a in tables["acts"]]
-    output = build_fixtures(tmp_path, tables)
-    assert slices(output, "A1909-7", "3") == []  # no assent date, no dated event
-    assert [v["valid_from"] for v in slices(output, "A1909-7", "2")] == ["2013-11-01"]
-    assert output.manifest()["coverage"]["section_versions_sections"] == len(output.table("sections")) - 4
+        "in_force": 9, "not_commenced": 0, "repealed": 7, "omitted": 0, "expired": 0,
+        "struck_down": 0, "stayed": 0, "ordinance_lapsed": 0, "unknown": 13}
 
 
 def test_fixture_build_with_versions_passes_the_validator(built_variant: BuildOutput) -> None:
