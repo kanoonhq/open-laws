@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import re
-from datetime import date
 
 import pyarrow as pa
 
 from enrich import Coverage, Row, Rows
+from enrich.dates import MONTHS, iso_date
 
 FIELDS = [
     pa.field("work_id", pa.string()),
@@ -18,9 +18,6 @@ FIELDS = [
     pa.field("savings_clause", pa.string()),
 ]
 
-MONTHS = {m: i for i, m in enumerate(
-    ["january", "february", "march", "april", "may", "june", "july", "august",
-     "september", "october", "november", "december"], start=1)}
 # "[27th March, 1855.]": ordinal day, month name, year. Spaces and commas
 # between the parts are optional ("[22ndMay,1993.]", "[14th, September, 2001.]").
 ENACTMENT_DATE = re.compile(r"(\d{1,2})(?:st|nd|rd|th)?[\s,]*([A-Za-z]+)[\s,]*(\d{4})")
@@ -37,14 +34,6 @@ def work_id(act_id: str) -> str:
     return f"in-central/act/{int(year)}/{int(number)}"
 
 
-def iso_date(year: str, month: int, day: str) -> str | None:
-    """ISO date, or None for an impossible calendar date."""
-    try:
-        return date(int(year), month, int(day)).isoformat()
-    except ValueError:
-        return None
-
-
 def assent_date(enactment_date: str | None) -> str | None:
     """'[6th October, 1860.]' -> '1860-10-06'; None when unparseable."""
     match = ENACTMENT_DATE.search(enactment_date or "")
@@ -56,7 +45,7 @@ def assent_date(enactment_date: str | None) -> str | None:
 def repeal_date(repeal_reason: str | None) -> str | None:
     """'... w.e.f. 01-07-2024 ...' -> '2024-07-01'."""
     match = REPEAL_WEF.search(repeal_reason or "")
-    return iso_date(match[3], int(match[2]), match[1]) if match else None
+    return iso_date(match[3], match[2], match[1]) if match else None
 
 
 def savings_clause(repeal_reason: str | None) -> str | None:

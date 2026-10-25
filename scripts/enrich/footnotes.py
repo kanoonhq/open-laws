@@ -25,12 +25,12 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from datetime import date
 from typing import Any
 
 import pyarrow as pa
 
 from enrich import Coverage, Row, Rows
+from enrich.dates import MONTHS, calendar_date, iso_date
 
 FIELDS = [
     pa.field("section_slug", pa.string()),
@@ -41,9 +41,6 @@ METHODS = (INLINE, PAGE_ORDER, ACT_LEVEL)
 
 # --- w.e.f. dates -----------------------------------------------------------
 
-MONTHS = {m: i for i, m in enumerate(
-    ["january", "february", "march", "april", "may", "june", "july", "august",
-     "september", "october", "november", "december"], start=1)}
 _WEF = r"w\s*\.?\s*e\s*\.?\s*f\s*[.,]*[\s.,]*(?:dated\s+)?"
 WEF_NUMERIC = re.compile(_WEF + r"(\d{1,2})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{4})(?!\d)", re.I)
 WEF_WORDS = re.compile(_WEF + r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:day\s+of\s+)?([A-Za-z]+)\.?,?\s*(\d{4})(?!\d)",
@@ -77,21 +74,7 @@ def parse_wef(text: str) -> str | None:
     for m in WEF_WORDS.finditer(text):
         if (month := MONTHS.get(m.group(2).lower())) is not None:
             found.append((m.start(), int(m.group(3)), month, int(m.group(1))))
-    for _, year, month, day in sorted(found):
-        try:
-            return date(year, month, day).isoformat()
-        except ValueError:
-            continue
-    return None
-
-
-def calendar_date(value: str | None) -> str | None:
-    """value when it is a real YYYY-MM-DD calendar date, else None (never guessed:
-    v0.1.1 carries a few such as 1959-19-01)."""
-    try:
-        return value if value and date.fromisoformat(value).isoformat() == value else None
-    except ValueError:
-        return None
+    return next((iso for _, *ymd in sorted(found) if (iso := iso_date(*ymd))), None)
 
 
 # --- inline markers ---------------------------------------------------------

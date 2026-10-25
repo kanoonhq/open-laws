@@ -1,6 +1,6 @@
 """
-Open Laws India — Standalone Data Integrity Validator
-=====================================================
+Open Laws India — Data Integrity Validator
+==========================================
 Validates the dataset files in data/ against data/manifest.json (SHA-256,
 size, row counts), every Parquet row against its schemas/*.schema.json, and
 the references between tables, and the dataset invariants (slug collisions,
@@ -20,28 +20,22 @@ import argparse
 import gzip
 import hashlib
 import json
-import re
 import sys
 from collections import Counter
-from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pyarrow.parquet as pq
 from enrich import acts as acts_stage
+from enrich.dates import calendar_date
 from enrich import footnotes as footnotes_stage
 from enrich import mappings as mappings_stage
 from jsonschema import Draft202012Validator
+from table_files import ACTS, FOOTNOTES, MAPPINGS, SECTIONS
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 SCHEMAS_DIR = ROOT / "schemas"
-
-ACTS = "indian_central_acts.parquet"
-SECTIONS = "indian_central_act_sections.parquet"
-FOOTNOTES = "central_act_footnotes.parquet"
-MAPPINGS = "criminal_law_mappings.parquet"
-ARCHIVE = "indian_central_acts_complete.jsonl.gz"
 
 # Parquet file -> (schema file, manifest total key)
 TABLES = {
@@ -74,7 +68,6 @@ DATE_COLUMNS = {
     FOOTNOTES: ("id", ("wef_date",)),
     MAPPINGS: ("old_section", ("effective_from",)),
 }
-ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 
 def sha256_of(path: Path) -> str:
@@ -243,16 +236,9 @@ def date_errors(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
         for row in tables[filename]:
             for column in columns:
                 value = row.get(column)
-                if value is not None and not is_iso_date(value):
+                if value is not None and calendar_date(value) is None:
                     bad.append(f"{row[key]}: {column} {value} is not an ISO YYYY-MM-DD date")
     return bad
-
-
-def is_iso_date(value: str) -> bool:
-    try:
-        return ISO_DATE.fullmatch(value) is not None and date.fromisoformat(value) is not None
-    except ValueError:
-        return False
 
 
 def footnote_link_errors(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
@@ -260,7 +246,7 @@ def footnote_link_errors(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
     bad = []
     for f in tables[FOOTNOTES]:
         where, slug = f"footnote {f['id']}", f["section_slug"]
-        if (f["linkage_method"] == "act_level") != (slug is None):
+        if (f["linkage_method"] == footnotes_stage.ACT_LEVEL) != (slug is None):
             bad.append(f"{where}: linkage_method {f['linkage_method']} but section_slug {slug}")
         elif slug is not None and (f["act_id"], slug) not in slugs:
             bad.append(f"{where}: section_slug {slug} is not a section of {f['act_id']}")

@@ -34,37 +34,32 @@ from enrich import Coverage, Rows
 from enrich import acts as acts_stage
 from enrich import footnotes as footnotes_stage
 from enrich import mappings as mappings_stage
+from table_files import ACTS, ARCHIVE, FOOTNOTES, MAPPINGS, SECTIONS
 
 VERSION = "v0.2.0"
 
-ACTS = "indian_central_acts.parquet"
-SECTIONS = "indian_central_act_sections.parquet"
-FOOTNOTES = "central_act_footnotes.parquet"
-MAPPINGS = "criminal_law_mappings.parquet"
-ARCHIVE = "indian_central_acts_complete.jsonl.gz"
-
-_s, _i32, _b = pa.string(), pa.int32(), pa.bool_()
+STRING, INT32, BOOL = pa.string(), pa.int32(), pa.bool_()
 # The v0.1.1 column layout; stages append their FIELDS after these.
 V011_SCHEMAS = {
     ACTS: pa.schema([
-        ("act_id", _s), ("title", _s), ("act_number", _s), ("enactment_date", _s),
-        ("jurisdiction", _s), ("category", _s), ("structure", _s), ("is_repealed", _b),
-        ("repealed_by", _s), ("repeal_reason", _s), ("chapter_count", _i32),
-        ("section_count", _i32), ("footnote_count", _i32), ("source_file", _s),
+        ("act_id", STRING), ("title", STRING), ("act_number", STRING), ("enactment_date", STRING),
+        ("jurisdiction", STRING), ("category", STRING), ("structure", STRING), ("is_repealed", BOOL),
+        ("repealed_by", STRING), ("repeal_reason", STRING), ("chapter_count", INT32),
+        ("section_count", INT32), ("footnote_count", INT32), ("source_file", STRING),
     ]),
     SECTIONS: pa.schema([
-        ("id", _s), ("act_id", _s), ("section_number", _s), ("slug", _s),
-        ("structural_unit", _s), ("heading", _s), ("full_text", _s), ("chapter_id", _s),
-        ("chapter_name", _s), ("language", _s),
+        ("id", STRING), ("act_id", STRING), ("section_number", STRING), ("slug", STRING),
+        ("structural_unit", STRING), ("heading", STRING), ("full_text", STRING), ("chapter_id", STRING),
+        ("chapter_name", STRING), ("language", STRING),
     ]),
     FOOTNOTES: pa.schema([
-        ("id", _s), ("act_id", _s), ("page_or_anchor", _s), ("footnote_number", _i32),
-        ("raw_text", _s), ("amendment_type", _s), ("amending_act_citation", _s),
-        ("amending_year", _i32), ("wef_date", _s),
+        ("id", STRING), ("act_id", STRING), ("page_or_anchor", STRING), ("footnote_number", INT32),
+        ("raw_text", STRING), ("amendment_type", STRING), ("amending_act_citation", STRING),
+        ("amending_year", INT32), ("wef_date", STRING),
     ]),
     MAPPINGS: pa.schema([
-        ("old_act_id", _s), ("old_section", _s), ("new_act_id", _s), ("new_section", _s),
-        ("mapping_type", _s), ("notes", _s),
+        ("old_act_id", STRING), ("old_section", STRING), ("new_act_id", STRING), ("new_section", STRING),
+        ("mapping_type", STRING), ("notes", STRING),
     ]),
 }
 OUTPUT_SCHEMAS = {
