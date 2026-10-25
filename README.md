@@ -61,7 +61,7 @@ This dataset provides structured, versioned, machine-readable bare acts, section
 | `central_act_footnotes.parquet` | `footnotes` | 28,656 statutory amendment footnotes with parsed Amending Acts, `w.e.f.` dates and, where the evidence allows, the `section_slug` they amend. |
 | `criminal_law_mappings.parquet` | `mappings` | Curated crosswalk of key provisions: IPC→BNS 2023, CrPC→BNSS 2023 and Indian Evidence Act→BSA 2023. `old_section` is null for provisions new in the 2023 codes; `new_section` is null for provisions with no successor. Each row carries `effective_from` and `applies_by`. |
 | `indian_central_acts_complete.jsonl.gz` | — | Hierarchical complete archive (each line is an Act with nested sections and footnotes). |
-| `manifest.json` | — | Row counts, sizes and SHA-256 checksums for every file, plus a `coverage` report (footnote linkage rate overall and per Act, links by method, Acts with an `assent_date`). |
+| `manifest.json` | — | Row counts, sizes and SHA-256 checksums for every file, plus a `coverage` report (footnote linkage rate overall, linked and total footnotes with the rate per Act, links by method, Acts with an `assent_date`). |
 
 Parquet files are zstd-compressed. On the Hugging Face Hub they sit at the repository root; in the GitHub repository they live under `data/`.
 
@@ -76,10 +76,10 @@ Every v0.1.1 column is kept unchanged, including the legacy `act_id` (`A1860-45`
 | `acts` | `assent_date` | ISO date parsed from `enactment_date`; the raw string is kept. |
 | `acts` | `commencement_date` | Null for every Act in v0.2.0. The column exists so the schema stays stable until it is filled. |
 | `acts` | `repeal_date` | ISO date of repeal, parsed from `repeal_reason` for repealed Acts. |
-| `acts` | `repealed_by` | Existing column, now parsed from `repeal_reason` for repealed Acts. It always resolves to a known Act. |
+| `acts` | `repealed_by` | Existing v0.1.1 column, kept unchanged. The validator checks that it resolves to a known Act. |
 | `acts` | `savings_clause` | The transition provision for pending matters, e.g. `BNSS s. 531`. |
 | `footnotes` | `section_slug` | Slug of the section the footnote amends, always in the same Act; null when the footnote could not be linked. |
-| `footnotes` | `linkage_method` | How the link was made: `inline_marker` (the section's inline marker matches the footnote number on the aligned page), `page_order` (the footnote sits between linked neighbours on the same section) or `act_level` (not linked; `section_slug` is null). When the evidence is unclear, no link is made. |
+| `footnotes` | `linkage_method` | How the link was made: `inline_marker` (the section's inline marker matches the footnote number on the aligned page), `page_order` (the footnote sits between two `inline_marker` links to the same section on the same page) or `act_level` (not linked; `section_slug` is null). When the evidence is unclear, no link is made. |
 | `mappings` | `effective_from` | `2024-07-01` for every mapping, the date the 2023 codes came into force. |
 | `mappings` | `applies_by` | Which date selects the code: `offence_date` for BNS (`A2023-45`) mappings, `proceeding_date` for BNSS and BSA mappings. |
 
@@ -96,7 +96,7 @@ python scripts/build_dataset.py --input-dir .cache/inputs/v0.1.1 --output-dir da
 python scripts/validate.py
 ```
 
-Given the same inputs and `--timestamp`, the output is byte-identical, so anyone can reproduce the SHA-256 values in `manifest.json`. The validator checks the schemas and date formats, `work_id` uniqueness, slug collisions per `(act_id, structural_unit, language)`, that each footnote's `section_slug` resolves to a section of the same Act, that `repealed_by` resolves to a known Act, and that the manifest's `coverage` matches recomputed values.
+Given the same inputs and `--timestamp` (default: `SOURCE_DATE_EPOCH`, else the input manifest's `export_timestamp`; never the current time), the output is byte-identical, so anyone can reproduce the SHA-256 values in `manifest.json`. The validator checks the schemas and date formats, `work_id` uniqueness, slug collisions per `(act_id, structural_unit, language)`, that each footnote's `section_slug` resolves to a section of the same Act, that `repealed_by` resolves to a known Act, and that the manifest's `coverage` matches recomputed values.
 
 ---
 

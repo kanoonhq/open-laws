@@ -11,13 +11,12 @@ A deterministic enrichment of the v0.1.1 corpus. All v0.1.1 columns are kept unc
 - **Acts**: `work_id` (`in-central/act/{year}/{number}`, e.g. `in-central/act/1860/45`), `doc_type` (`act`), `assent_date` (ISO, parsed from `enactment_date`), `repeal_date`, `savings_clause` (e.g. `BNSS s. 531`) and `commencement_date` (null for every Act in this release).
 - **Footnotes**: `section_slug` (the section in the same Act that the footnote amends, or null) and `linkage_method` (`inline_marker`, `page_order` or `act_level`). Footnotes that cannot be linked with confidence stay at Act level.
 - **Mappings**: `effective_from` (`2024-07-01`) and `applies_by` (`offence_date` for BNS, `proceeding_date` for BNSS and BSA).
-- **Manifest**: a `coverage` report with the footnote linkage rate overall and per Act, link counts by method, and the number of Acts with an `assent_date`.
-- **Build**: `scripts/build_dataset.py` regenerates every table, the jsonl archive and the manifest from the frozen v0.1.1 inputs (`scripts/extract_inputs.py`). The output is byte-identical for the same inputs and `--timestamp`.
+- **Manifest**: a `coverage` report with the footnote linkage rate overall, linked and total footnote counts with the rate per Act, link counts by method, and the number of Acts with an `assent_date`.
+- **Build**: `scripts/build_dataset.py` regenerates every table, the jsonl archive and the manifest from the frozen v0.1.1 inputs (`scripts/extract_inputs.py`). The output is byte-identical for the same inputs and `--timestamp` (default: `SOURCE_DATE_EPOCH`, else the input manifest's `export_timestamp`; never the current time).
 - **CI**: the pytest suite runs on every pull request.
 
 ### Changed
 
-- `repealed_by` is now parsed from `repeal_reason` for repealed Acts.
 - The README licensing note now states s. 52(1)(q)(i)–(iv) of the Copyright Act, 1957 precisely and says that CC0 covers only the project's own contributions. The note is pending counsel review.
 
 ### Fixed
@@ -32,7 +31,7 @@ New checks in `scripts/validate.py`:
 - `work_id` is unique;
 - no slug collisions per `(act_id, structural_unit, language)`;
 - every footnote `section_slug` resolves to a section of the same Act;
-- every `repealed_by` resolves to a known Act;
+- every `repealed_by` (kept unchanged from v0.1.1) resolves to a known Act;
 - date columns, including footnote `wef_date`, are real ISO calendar dates;
 - the manifest's `coverage` matches values recomputed from the tables.
 
