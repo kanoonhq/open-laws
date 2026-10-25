@@ -105,3 +105,14 @@ def test_rejects_tampered_coverage(built: BuildOutput, tmp_path: Path, key: str,
     manifest["coverage"][key] = value
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     assert_rejected(BuildOutput(tmp_path / "out"), f"manifest coverage.{key}")
+
+
+@pytest.mark.parametrize("count", ["linked", "total"])
+def test_rejects_tampered_per_act_footnote_counts(built: BuildOutput, tmp_path: Path,
+                                                  count: str) -> None:
+    shutil.copytree(built.dir, tmp_path / "out")
+    manifest_path = tmp_path / "out" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["coverage"]["footnote_linkage_by_act"]["A1909-7"][count] += 1
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    assert_rejected(BuildOutput(tmp_path / "out"), "manifest coverage.footnote_linkage_by_act")

@@ -150,8 +150,9 @@ def test_manifest_reports_footnote_linkage_coverage(built: BuildOutput) -> None:
     assert coverage["footnote_linkage_rate"] == round(linked / len(footnotes), 4)
     per_act = coverage["footnote_linkage_by_act"]
     assert set(per_act) == {"A1860-45", "A2023-45", "A1909-7"}  # Acts with footnotes
-    assert per_act["A2023-45"] == 0.0
-    assert per_act["A1909-7"] == 0.5  # 2 of 4
+    assert per_act["A2023-45"] == {"linked": 0, "total": 1, "rate": 0.0}
+    assert per_act["A1909-7"] == {"linked": 2, "total": 4, "rate": 0.5}
+    assert per_act["A1860-45"]["total"] == 17
 
 
 def test_linked_build_passes_the_validator(built: BuildOutput) -> None:

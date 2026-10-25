@@ -245,17 +245,20 @@ def link_act(footnotes: list[tuple[int, Row]], sections: Rows) -> dict[int, tupl
 
 
 def linkage_coverage(rows: Rows) -> Coverage:
-    def rate(group: Rows) -> float:
-        return round(sum(f["linkage_method"] != ACT_LEVEL for f in group) / len(group), 4)
+    def linked(group: Rows) -> int:
+        return sum(f["linkage_method"] != ACT_LEVEL for f in group)
 
     by_act: dict[str, Rows] = defaultdict(list)
     for f in rows:
         by_act[f["act_id"]].append(f)
     return {
-        "footnote_linkage_rate": rate(rows) if rows else 0.0,
+        "footnote_linkage_rate": round(linked(rows) / len(rows), 4) if rows else 0.0,
         "footnote_links_by_method": {m: sum(f["linkage_method"] == m for f in rows)
                                      for m in METHODS},
-        "footnote_linkage_by_act": {act_id: rate(group) for act_id, group in by_act.items()},
+        "footnote_linkage_by_act": {
+            act_id: {"linked": linked(group), "total": len(group),
+                     "rate": round(linked(group) / len(group), 4)}
+            for act_id, group in by_act.items()},
     }
 
 
