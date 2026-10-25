@@ -30,7 +30,26 @@
     },
     "enactment_date": {
       "type": "string",
-      "description": "Date of enactment as published in the preamble"
+      "description": "Date of enactment as published in the preamble (raw, e.g. [27th March, 1855.])"
+    },
+    "assent_date": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "ISO 8601 date of assent parsed from enactment_date; null when unparseable"
+    },
+    "commencement_date": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "ISO 8601 date the Act came into force; null when unknown (always null in v0.2.0)"
+    },
+    "repeal_date": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "ISO 8601 date the repeal took effect, parsed from repeal_reason; null if in force"
+    },
+    "savings_clause": {
+      "type": ["string", "null"],
+      "description": "Savings provision in the repealing Act, e.g. BNS s. 358; null if none"
     },
     "jurisdiction": {
       "type": "string",
