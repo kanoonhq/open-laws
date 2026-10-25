@@ -226,7 +226,8 @@ class Context:
 
 
 def verbatim(text: str | None, start: str, events: tuple[Row, ...] = ()) -> Slice:
-    return Slice(start, text, "verbatim_source" if text else "unavailable", 1.0 if text else 0.0, events)
+    # An empty source text ("" in v0.1.1) is no wording: null, as for any unavailable slice.
+    return Slice(start, text or None, "verbatim_source" if text else "unavailable", 1.0 if text else 0.0, events)
 
 
 def unknown(start: str) -> Slice:

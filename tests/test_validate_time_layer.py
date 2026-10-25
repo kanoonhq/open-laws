@@ -137,6 +137,16 @@ def test_build_with_state_amendments_validates(built_blocks: BuildOutput) -> Non
     assert result.returncode == 0, result.stdout
 
 
+def test_section_with_empty_source_text_validates(tmp_path: Path) -> None:
+    # ~700 real v0.1.1 sections have full_text "": no wording, so null text.
+    tables = load_fixture_rows()
+    tables["sections"] = [{**s, "full_text": ""} if s["id"] == "A1909-7:6" else s for s in tables["sections"]]
+    output = build_fixtures(tmp_path, tables)
+    assert {v["full_text"] for v in output.table(VERSIONS) if v["act_id"] == "A1909-7" and v["slug"] == "6"} == {None}
+    result = run_validator(output.dir)
+    assert result.returncode == 0, result.stdout
+
+
 def test_rejects_version_of_unknown_section(built: BuildOutput, tmp_path: Path) -> None:
     broken = corrupt_output(built, tmp_path / "out", VERSIONS,
                             update("id", "A1872-1:8:1872-03-15", slug="8a"))

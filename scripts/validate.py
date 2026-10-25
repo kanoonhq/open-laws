@@ -14,8 +14,8 @@ A v0.3.0 or later manifest must list every derived table, and the time layer
 is checked (PROCUREMENT_PLAN §7.3, §7.6): each section's versions are
 contiguous (valid_from <= valid_to, no overlap or gap, the last open-ended),
 text is null exactly when unavailable, each later slice is opened by a known
-event (unless it is where the wording first becomes known), each amendment event has a
-footnote or is a repeal, no slice is in force after a strike-down or during a
+event (unless it follows a slice whose wording is unavailable), each
+amendment event has a footnote or is a repeal, no slice is in force after a strike-down or during a
 stay (until stay_lifted), and every act_id, central_act_id, section,
 jurisdiction code, succession link and ISO alias resolves. v0.2.0 data skips
 these checks.
@@ -342,19 +342,18 @@ def text_status_errors(versions: Rows) -> list[str]:
 
 
 def event_link_errors(tables: dict[str, Rows], chains: Chains) -> list[str]:
-    """Every slice after the first is opened by an event, except where the
-    wording first becomes assertable (an unavailable slice, e.g. an `unknown`
-    span, followed by text: that boundary is the date the text is known to
-    stand from, not a change); every listed event and footnote exists; and
-    every amendment event has a source (a footnote, or the Act's repeal)."""
+    """Every slice after the first is opened by an event, except one that
+    follows a slice whose wording is unavailable (e.g. an `unknown` span): that
+    boundary is the date the source asserts the section from (its latest
+    event, or as_of), not a change; every listed event and footnote exists;
+    and every amendment event has a source (a footnote, or the Act's repeal)."""
     footnote_ids = {f["id"] for f in tables[FOOTNOTES]}
     event_ids = {e["id"] for e in tables[events_stage.FILE]}
     event_ids |= {j["id"] for j in tables[judicial_events_stage.FILE]}
     bad = []
     for chain in chains.values():
         for previous, v in pairwise(chain):
-            first_known = previous["text_status"] == "unavailable" and v["text_status"] != "unavailable"
-            if not v["amendment_event_ids"] and not first_known:
+            if not v["amendment_event_ids"] and previous["text_status"] != "unavailable":
                 bad.append(f"{v['id']}: version {v['version_number']} is opened by no event")
         for v in chain:
             bad += [f"{v['id']}: event {e} is not an amendment or judicial event"
