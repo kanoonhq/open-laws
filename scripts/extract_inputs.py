@@ -15,8 +15,9 @@ import sys
 import tarfile
 from pathlib import Path
 
+from table_files import V011_COMMIT
+
 ROOT = Path(__file__).resolve().parents[1]
-V011_COMMIT = "7222593"
 DEFAULT_OUTPUT_DIR = ROOT / ".cache" / "inputs" / "v0.1.1"
 
 

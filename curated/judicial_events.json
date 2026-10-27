@@ -1,0 +1,50 @@
+[
+  {
+    "act_citation": "Act 21 of 2000",
+    "provision_path": "66a",
+    "court": "Supreme Court of India",
+    "case_name": "Shreya Singhal v. Union of India",
+    "neutral_citation": null,
+    "reported_citation": "(2015) 5 SCC 1",
+    "decision_date": "2015-03-24",
+    "effect": "struck_down",
+    "scope_note": "Section 66A of the Information Technology Act, 2000 struck down in its entirety as violative of Article 19(1)(a) and not saved by Article 19(2).",
+    "source_url": "https://indiankanoon.org/doc/110813550/"
+  },
+  {
+    "act_citation": "Act 45 of 1860",
+    "provision_path": "377",
+    "court": "Supreme Court of India",
+    "case_name": "Navtej Singh Johar v. Union of India",
+    "neutral_citation": null,
+    "reported_citation": "(2018) 10 SCC 1",
+    "decision_date": "2018-09-06",
+    "effect": "read_down",
+    "scope_note": "Read down: section 377 no longer criminalises consensual sexual conduct between adults in private; it continues to apply to non-consensual acts, acts involving minors, and bestiality.",
+    "source_url": "https://indiankanoon.org/doc/168671544/"
+  },
+  {
+    "act_citation": "Act 45 of 1860",
+    "provision_path": "497",
+    "court": "Supreme Court of India",
+    "case_name": "Joseph Shine v. Union of India",
+    "neutral_citation": null,
+    "reported_citation": "(2019) 3 SCC 39",
+    "decision_date": "2018-09-27",
+    "effect": "struck_down",
+    "scope_note": "Section 497 (adultery) struck down as violative of Articles 14, 15 and 21; section 198(2) of the Code of Criminal Procedure, 1973 struck down to the extent it applies to section 497.",
+    "source_url": "https://indiankanoon.org/doc/42184625/"
+  },
+  {
+    "act_citation": "Act 45 of 1860",
+    "provision_path": "124a",
+    "court": "Supreme Court of India",
+    "case_name": "S.G. Vombatkere v. Union of India",
+    "neutral_citation": null,
+    "reported_citation": null,
+    "decision_date": "2022-05-11",
+    "effect": "stayed",
+    "scope_note": "Interim order in W.P.(C) No. 682 of 2021: pending trials, appeals and proceedings on a charge under section 124A kept in abeyance, and Governments expected to refrain from registering FIRs under section 124A, while the provision is re-examined.",
+    "source_url": "https://indiankanoon.org/doc/134384639/"
+  }
+]

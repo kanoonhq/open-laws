@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SectionVersion",
+  "description": "One bi-temporal slice of a section's wording (PROCUREMENT_PLAN §2.2 Table 2): verbatim for the current slice, reverse-reconstructed only where unambiguous, else unavailable",
+  "type": "object",
+  "required": [
+    "id", "act_id", "section_number", "slug", "structural_unit", "version_number", "heading", "full_text",
+    "valid_from", "valid_to", "status", "text_status", "confidence", "amendment_event_ids",
+    "amended_by_act_id", "amendment_citation", "change_summary", "footnote_references", "source_url",
+    "source_sha256", "retrieved_at", "parser_version", "recorded_from", "recorded_to", "language"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^A[0-9]{4}-[0-9]+:[^:]+:[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Deterministic ID {act_id}:{slug}:{valid_from} e.g. A1860-45:376:2013-02-03"
+    },
+    "act_id": {"type": "string", "pattern": "^A[0-9]{4}-[0-9]+$"},
+    "section_number": {"type": "string", "description": "Official label as published e.g. Section 376."},
+    "slug": {"type": "string", "minLength": 1, "description": "Section slug as in the sections table"},
+    "structural_unit": {"type": "string", "enum": ["section", "order", "rule", "article", "schedule"]},
+    "version_number": {"type": "integer", "minimum": 1, "description": "1, 2, 3, ... in valid_from order"},
+    "heading": {
+      "type": ["string", "null"],
+      "description": "Marginal heading in force during the slice; null when the slice's wording is unavailable"
+    },
+    "full_text": {
+      "type": ["string", "null"],
+      "description": "Wording in force during the slice; null exactly when text_status is unavailable"
+    },
+    "valid_from": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "valid_to": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "The next slice's valid_from; null for the open-ended last slice"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["in_force", "not_commenced", "repealed", "omitted", "expired", "struck_down", "stayed",
+               "ordinance_lapsed", "unknown"],
+      "description": "unknown: an interval before the first date the section's wording can be asserted (an amendment of the Act, linked or not, or an undated one, may lie in it); its text is unavailable"
+    },
+    "text_status": {"type": "string", "enum": ["verbatim_source", "reconstructed", "unavailable"]},
+    "confidence": {
+      "type": "number", "minimum": 0, "maximum": 1,
+      "description": "1.0 verbatim, 0.8 reconstructed, 0.0 unavailable"
+    },
+    "amendment_event_ids": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "amendment_events ids (or judicial_events ids, for a ruling) that opened the slice; [] for the first slice"
+    },
+    "amended_by_act_id": {"type": ["string", "null"], "pattern": "^A[0-9]{4}-[0-9]+$"},
+    "amendment_citation": {"type": ["string", "null"], "description": "e.g. Act 13 of 2013, s. 9"},
+    "change_summary": {"type": ["string", "null"], "description": "e.g. Substituted by Act 13 of 2013, s. 9"},
+    "footnote_references": {"type": "array", "items": {"type": "string"}},
+    "source_url": {
+      "type": "string",
+      "pattern": "^https://",
+      "description": "Permalink to the frozen v0.1.1 sections table the text was read from, #section id"
+    },
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the source section text"},
+    "retrieved_at": {"type": "string", "description": "The build's fixed export timestamp (ISO 8601)"},
+    "parser_version": {"type": "string", "minLength": 1},
+    "recorded_from": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "recorded_to": {"type": ["string", "null"]},
+    "language": {"type": "string", "minLength": 2}
+  }
+}

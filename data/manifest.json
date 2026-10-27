@@ -9,7 +9,7 @@
     2023
   ],
   "export_timestamp": "2026-01-01T00:00:00+00:00",
-  "version": "v0.2.0",
+  "version": "v0.3.0",
   "coverage": {
     "acts_with_assent_date": 861,
     "footnote_linkage_rate": 0.4784,
@@ -3634,7 +3634,93 @@
         "total": 1,
         "rate": 0.0
       }
-    }
+    },
+    "amendment_events_by_operation": {
+      "substitution": 13575,
+      "insertion": 8228,
+      "omission": 2738,
+      "renumbering": 273,
+      "extension": 151,
+      "repeal": 3,
+      "other": 3691
+    },
+    "judicial_events_by_effect": {
+      "struck_down": 2,
+      "read_down": 1,
+      "stayed": 1,
+      "stay_lifted": 0,
+      "upheld": 0
+    },
+    "judicial_events_unresolved_act": [],
+    "jurisdictions": {
+      "rows": 47,
+      "current": 37,
+      "historical": 10,
+      "iso_verified": 36,
+      "iso_unverified": [],
+      "iso_aliases": 7,
+      "inconsistencies": 0
+    },
+    "state_amendments": {
+      "rows": 617,
+      "parsed": 561,
+      "raw": 56,
+      "sections": 353,
+      "without_reference": 4,
+      "by_state": {
+        "IN-AN": 8,
+        "IN-AP": 15,
+        "IN-AS": 54,
+        "IN-CG": 16,
+        "IN-DL": 2,
+        "IN-GJ": 15,
+        "IN-HIST-DN": 7,
+        "IN-HIST-MP": 4,
+        "IN-HIST-UP": 14,
+        "IN-HP": 23,
+        "IN-HR": 2,
+        "IN-JK": 44,
+        "IN-KA": 110,
+        "IN-KL": 44,
+        "IN-LA": 44,
+        "IN-LD": 7,
+        "IN-MH": 68,
+        "IN-MP": 4,
+        "IN-OD": 102,
+        "IN-TR": 9,
+        "IN-UP": 5,
+        "IN-WB": 17,
+        "unmapped": 3
+      },
+      "by_type": {
+        "substitution": 264,
+        "insertion": 247,
+        "omission": 32,
+        "proviso": 22,
+        "untyped": 52
+      },
+      "unmapped_state_names": [
+        "Andhra Pradesh",
+        "KARNATAKA"
+      ]
+    },
+    "section_versions_by_text_status": {
+      "verbatim_source": 36190,
+      "reconstructed": 31,
+      "unavailable": 27951
+    },
+    "section_versions_by_status": {
+      "in_force": 35630,
+      "not_commenced": 0,
+      "repealed": 1295,
+      "omitted": 0,
+      "expired": 0,
+      "struck_down": 3,
+      "stayed": 1,
+      "ordinance_lapsed": 0,
+      "unknown": 27243
+    },
+    "section_versions_sections": 36895
   },
   "files": {
     "indian_central_acts.parquet": {
@@ -3656,6 +3742,31 @@
       "size_bytes": 5349,
       "sha256": "7770049b160336589503f2e81003baa9ab48bad40f3a77378852fb7f6fb8d1ec",
       "rows": 107
+    },
+    "amendment_events.parquet": {
+      "size_bytes": 452186,
+      "sha256": "0a87bce78e2a8e3899cc92bc87089dc387009ec44cc6776b33e0735b1a4410e8",
+      "rows": 28659
+    },
+    "judicial_events.parquet": {
+      "size_bytes": 5162,
+      "sha256": "c74112533fd5a5aec07cf15b585e8aadab0b42ab161672032a0a327acb0e59a7",
+      "rows": 4
+    },
+    "jurisdictions.parquet": {
+      "size_bytes": 8755,
+      "sha256": "e3a0e005296f9e6619107f277d070db67d8b091bd6e6e61c336b6a985aea34db",
+      "rows": 47
+    },
+    "state_amendments.parquet": {
+      "size_bytes": 194724,
+      "sha256": "972306343fd9521bf7095fe2582fc10e3bcf8b1c97e5e5f665c28f1267bd21e3",
+      "rows": 617
+    },
+    "indian_act_section_versions.parquet": {
+      "size_bytes": 8887582,
+      "sha256": "e14d156efb7935326d5601a0401312c76281b0af9beac3631d1ab7705566a286",
+      "rows": 64172
     },
     "indian_central_acts_complete.jsonl.gz": {
       "size_bytes": 10678452,

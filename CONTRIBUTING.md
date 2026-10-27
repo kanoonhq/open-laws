@@ -36,6 +36,14 @@ python scripts/validate.py
 
 Given the same inputs and `--timestamp`, the output is byte-identical. The enrichment stages live in `scripts/enrich/` (`acts.py`, `footnotes.py`, `mappings.py`): each is a pure function over row lists that declares its added columns in `FIELDS` and returns `(rows, coverage)`, which the build merges into `manifest.json` under `coverage`.
 
+The v0.3.0 time layer adds **derived tables**: new output tables rather than new columns. The contract is in `scripts/enrich/__init__.py`:
+
+- Each derived table is one stage module in `scripts/enrich/` that defines a module-level `TABLE = DerivedTable(file, schema, json_schema, build, coverage)`: the output parquet name, its Arrow schema, its JSON schema file in `schemas/`, a pure `build(tables)` over the enriched tables (and the derived tables built before it), and `coverage(rows)` computed from its own rows only, under top-level keys no other stage uses.
+- It is listed once in `scripts/enrich/registry.py`, in build order. That entry is enough for `build_dataset.py` to write the table and its coverage, and for `validate.py` to check its rows against the JSON schema and recompute its coverage.
+- Invariants specific to one table (contiguous version intervals, references that must resolve, ruling statuses) are not covered by the registry; add them to `validate.py`.
+- Hand-maintained inputs go in `curated/` (read through `enrich.CURATED_DIR`), one `source_url` per row; see [`curated/README.md`](curated/README.md).
+- Shared helpers: `enrich.unique_ids` (the `-2`, `-3`, … id suffixes), `enrich.acts.act_id_for` (`Act N of YYYY` → `AYYYY-N`), `enrich.jurisdictions.named`/`code_for_name` (State names → codes), and `scripts/table_files.py` (file names, `VERSION`, `V011_COMMIT` and the v0.1.1 permalinks used as `source_url`).
+
 The test fixtures in `tests/fixtures/v0.1.1/` are slices of real v0.1.1 rows; to extend them, edit the selection in `tests/fixtures/make_fixtures.py` and rerun it after `extract_inputs.py`.
 
 ---

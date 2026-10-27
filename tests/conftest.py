@@ -83,7 +83,8 @@ class BuildOutput:
     dir: Path
 
     def table(self, name: str) -> Rows:
-        return pq.read_table(self.dir / TABLE_FILES[name]).to_pylist()
+        """A fixture table name (acts, ...) or a derived table's file name."""
+        return pq.read_table(self.dir / TABLE_FILES.get(name, name)).to_pylist()
 
     def archive(self) -> Rows:
         with gzip.open(self.dir / ARCHIVE, "rt", encoding="utf-8") as f:
@@ -103,10 +104,10 @@ def build_fixtures(tmp: Path, tables: dict[str, Rows] | None = None) -> BuildOut
 def corrupt_output(
     src: BuildOutput, dst: Path, name: str, mutate: Callable[[Rows], Rows]
 ) -> BuildOutput:
-    """Copy a build to dst, rewrite one table with mutate(rows) and re-seal the
+    """Copy a build to dst, rewrite one table (named as for BuildOutput.table) with mutate(rows) and re-seal the
     manifest's checksum for it, so the validator gets past the checksum checks."""
     shutil.copytree(src.dir, dst)
-    path = dst / TABLE_FILES[name]
+    path = dst / TABLE_FILES.get(name, name)
     table = pq.read_table(path)
     rows = mutate(table.to_pylist())
     # A mutate that drops a column from every row drops it from the file.

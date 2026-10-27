@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Jurisdiction",
+  "description": "One jurisdiction with its validity interval and succession links (PROCUREMENT_PLAN §2.2 Table 6), built from curated/jurisdictions.csv and curated/iso_aliases.csv",
+  "type": "object",
+  "required": [
+    "code", "name", "other_names", "type", "valid_from", "valid_to", "successor_of", "inherited_laws_from",
+    "iso_code", "iso_status", "iso_aliases", "iso_version", "iso_verified_on", "legal_basis", "source_url", "notes"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "code": {"type": "string", "pattern": "^IN-(CENTRAL|[A-Z]{2}|HIST-[A-Z]+)$"},
+    "date": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}
+  },
+  "properties": {
+    "code": {
+      "$ref": "#/$defs/code",
+      "description": "ISO 3166-2:IN code of a current State or Union territory (e.g. IN-MH), IN-CENTRAL for the Union, or IN-HIST-<NAME> for a historical unit"
+    },
+    "name": {"type": "string", "description": "Name, the last one borne for a renamed jurisdiction"},
+    "other_names": {
+      "type": "array", "items": {"type": "string"},
+      "description": "Former or alternate names (e.g. Madras for Tamil Nadu), for mapping names to codes"
+    },
+    "type": {"type": "string", "enum": ["union", "state", "union_territory"], "description": "Current, or final, status"},
+    "valid_from": {
+      "$ref": "#/$defs/date",
+      "description": "First day, from a corpus provision; null when it existed before 1956-11-01 and no start date is citable from the corpus (earlier history is not modelled)"
+    },
+    "valid_to": {"$ref": "#/$defs/date", "description": "Day it ceased to exist (exclusive); null while it exists"},
+    "successor_of": {
+      "type": "array", "items": {"$ref": "#/$defs/code"},
+      "description": "Codes of the jurisdictions it was formed from; each ends on this one's valid_from"
+    },
+    "inherited_laws_from": {
+      "type": "array", "items": {"$ref": "#/$defs/code"},
+      "description": "Codes of the jurisdictions whose laws continued in (part of) its territory"
+    },
+    "iso_code": {
+      "type": ["string", "null"], "pattern": "^IN-[A-Z]{2}$",
+      "description": "Its ISO 3166-2:IN code; null for the Union and historical units"
+    },
+    "iso_status": {
+      "type": "string", "enum": ["verified", "unverified", "none"],
+      "description": "Whether iso_code was cross-checked against the pinned ISO list via the secondary mirror named in the curated header (none: no ISO code)"
+    },
+    "iso_aliases": {
+      "type": "array", "items": {"type": "string", "pattern": "^IN-[A-Z]{2}$"},
+      "description": "Former ISO 3166-2:IN codes that resolve to this jurisdiction (e.g. IN-TG for IN-TS)"
+    },
+    "iso_version": {"type": "string", "description": "The pinned ISO 3166-2:IN version"},
+    "iso_verified_on": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "legal_basis": {
+      "type": "array", "items": {"type": "string", "pattern": "^A[0-9]{4}-[0-9]+ s\\. [0-9A-Za-z()]+$"},
+      "description": "Provisions of corpus Acts that establish the row, e.g. A1960-11 s. 2(a)"
+    },
+    "source_url": {"type": "string", "description": "Provenance"},
+    "notes": {"type": ["string", "null"]}
+  }
+}

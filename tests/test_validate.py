@@ -42,7 +42,10 @@ def test_rejects_slug_collision(built: BuildOutput, tmp_path: Path) -> None:
         return [{**s, "slug": "5"} if s["id"] == "A1909-7:6" else s for s in rows]
 
     broken = corrupt_output(built, tmp_path / "out", "sections", collide)
-    assert_rejected(broken, "slug collision A1909-7 section en 5")
+    result = run_validator(broken.dir)
+    assert result.returncode != 0, result.stdout
+    # v0.3.0 also reports section 6's versions, whose slug no longer resolves.
+    assert "❌ slug collision A1909-7 section en 5" in result.stdout.splitlines(), result.stdout
 
 
 def update_footnote(act_id: str, number: int, **changes: object):

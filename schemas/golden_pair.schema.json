@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GoldenPair",
+  "description": "One hand-verified (provision, date) -> text pair of the golden set (PROCUREMENT_PLAN §7 gate 5; spec #10 adds only the format). A golden set file is a JSON array of these objects; reconstruction precision is measured against indian_act_section_versions.",
+  "type": "object",
+  "required": [
+    "id", "act_id", "slug", "language", "as_of", "expected_text", "source_url", "verified_by", "verified_on", "notes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^A[0-9]{4}-[0-9]+:[^:]+:[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "{act_id}:{slug}:{as_of}, e.g. A2023-45:103:2024-07-01"
+    },
+    "act_id": {"type": "string", "pattern": "^A[0-9]{4}-[0-9]+$"},
+    "slug": {"type": "string", "minLength": 1, "description": "The section slug, as in the sections table"},
+    "language": {"type": "string", "enum": ["en"]},
+    "as_of": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "The date the expected text was in force on"
+    },
+    "expected_text": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The section's full text in force on as_of, as checked by hand against the source"
+    },
+    "source_url": {
+      "type": "string",
+      "pattern": "^https://",
+      "description": "The authoritative text the pair was checked against (e.g. a Gazette of India notification or an India Code version)"
+    },
+    "verified_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Who hand-verified the pair: a GitHub handle, never an email address"
+    },
+    "verified_on": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "notes": {"type": ["string", "null"]}
+  }
+}

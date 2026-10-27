@@ -28,6 +28,11 @@ SAVINGS = re.compile(r"savings\s+under\s+s(?:ection|\.)\s*(\d+[A-Z]*)")
 REPLACED_BY = re.compile(r"replaced\s+by\s+(?:the\s+)?([^,(]+?),?\s+\d{4}")
 
 
+def act_id_for(year: str | int, number: str | int) -> str:
+    """Act {number} of {year} -> its act_id, e.g. (1860, 45) -> A1860-45."""
+    return f"A{int(year)}-{int(number)}"
+
+
 def work_id(act_id: str) -> str:
     """A1860-45 -> in-central/act/1860/45 (no zero-padding)."""
     year, number = act_id.removeprefix("A").split("-")

@@ -75,9 +75,9 @@ def test_archive_nests_sections_and_footnotes_per_act(built: BuildOutput) -> Non
     assert archive["A1872-1"]["footnotes"] == []
 
 
-def test_manifest_reports_v020_totals_and_timestamp(built: BuildOutput) -> None:
+def test_manifest_reports_v030_totals_and_timestamp(built: BuildOutput) -> None:
     manifest = built.manifest()
-    assert manifest["version"] == "v0.2.0"
+    assert manifest["version"] == "v0.3.0"
     assert manifest["export_timestamp"] == FIXED_TIMESTAMP
     assert (manifest["total_acts"], manifest["total_sections"]) == (5, 15)
     assert (manifest["total_footnotes"], manifest["total_mappings"]) == (22, 2)
