@@ -3663,8 +3663,8 @@
     },
     "state_amendments": {
       "rows": 617,
-      "parsed": 560,
-      "raw": 57,
+      "parsed": 561,
+      "raw": 56,
       "sections": 353,
       "without_reference": 4,
       "by_state": {
@@ -3686,11 +3686,11 @@
         "IN-LD": 7,
         "IN-MH": 68,
         "IN-MP": 4,
-        "IN-OD": 101,
+        "IN-OD": 102,
         "IN-TR": 9,
         "IN-UP": 5,
         "IN-WB": 17,
-        "unmapped": 4
+        "unmapped": 3
       },
       "by_type": {
         "substitution": 264,
@@ -3754,13 +3754,13 @@
       "rows": 4
     },
     "jurisdictions.parquet": {
-      "size_bytes": 8707,
-      "sha256": "6a465435a5257a8ed39f7bca014259d1f1c8419f6096d9c1568093411407260d",
+      "size_bytes": 8755,
+      "sha256": "e3a0e005296f9e6619107f277d070db67d8b091bd6e6e61c336b6a985aea34db",
       "rows": 47
     },
     "state_amendments.parquet": {
-      "size_bytes": 192477,
-      "sha256": "930718bcf28068a2a89de5bcc2bfb17ef1aa39a57b06b508a936820b70c8c48a",
+      "size_bytes": 194724,
+      "sha256": "972306343fd9521bf7095fe2582fc10e3bcf8b1c97e5e5f665c28f1267bd21e3",
       "rows": 617
     },
     "indian_act_section_versions.parquet": {
