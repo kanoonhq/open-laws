@@ -11,11 +11,12 @@ A point-in-time layer, jurisdictions, a state-amendment bootstrap and a crawler 
 - **`indian_act_section_versions`** (config `versions`): bi-temporal slices of every section, valid over `[valid_from, valid_to)`, with `status`, `text_status`, `confidence`, the `amendment_event_ids` that opened each slice, and provenance (`source_url`, `source_sha256`, `retrieved_at`, `parser_version`, `recorded_from = v0.3.0`, `recorded_to = null`). Earlier wording is reverse-reconstructed (one level, confidence 0.8) only from a linked footnote that quotes it, where the edit reverses unambiguously. A new `status = unknown` marks intervals before the first date the wording can be asserted.
 - **`amendment_events`** (config `events`): one row per amending operation, from footnotes (Act-level footnotes kept with empty `provisions_affected`) and Act-level repeals, with deterministic IDs.
 - **`judicial_events`**: the four PROCUREMENT_PLAN §2.2 seed rulings. A strike-down (IT Act s. 66A, IPC s. 497) or a stay (IPC s. 124A) splits the slices and persists on every later one; `read_down` (IPC s. 377) never changes status.
-- **`jurisdictions`**: the Union, 28 States, 8 UTs and 10 historical units, with validity intervals, `successor_of`, `inherited_laws_from`, `legal_basis`, ISO 3166-2:IN codes pinned to the 2023-11-23 change (verified 2026-10-25) and an alias table (e.g. `IN-TG` → `IN-TS`).
-- **`state_amendments`**: parsed from the 353 STATE AMENDMENT blocks. Unparseable entries keep `raw_text` with a null type. `valid_to` is the central Act's `repeal_date`, so CrPC, IPC and Evidence Act rows end on 2024-07-01. Section text is unchanged.
+- **`jurisdictions`**: the Union, 28 States, 8 UTs and 10 historical units, with validity intervals, `successor_of`, `inherited_laws_from`, `legal_basis`, ISO 3166-2:IN codes pinned to the 2023-11-23 change (cross-checked 2026-10-25 via a secondary mirror of the ISO OBP) and an alias table (e.g. `IN-TG` → `IN-TS`).
+- **`state_amendments`**: parsed from the 353 STATE AMENDMENT blocks. Unparseable entries keep `raw_text` with a null type; every row cites its v0.1.1 section as `source_url`. `valid_to` is the central Act's `repeal_date`, so CrPC, IPC and Evidence Act rows end on 2024-07-01. Section text is unchanged.
 - **Crawler** (`scripts/crawlers/`): a polite, resumable HTTP client (PROCUREMENT_PLAN §6: 2 connections per host, ≥500 ms + 200–500 ms jitter, robots.txt, 10/30/60 s backoff on 429/503/504, an honest User-Agent), a content-addressed cache, a WARC/1.1 writer, and a `record` CLI (`python scripts/crawlers/record.py --portal indiacode --urls urls.txt`) for a maintainer to run from a machine that can reach the portals. Standard library only.
 - **Build**: a registry of derived tables (`scripts/enrich/registry.py`); `as_of` comes from `--timestamp`, `SOURCE_DATE_EPOCH` or the input manifest, never the clock.
 - **Hugging Face**: the five new tables are uploaded (they are listed in `manifest.json`) and have dataset-card configs.
+- **Golden set format**: `schemas/golden_pair.schema.json` for hand-verified `(provision, date) → text` pairs (documented in `curated/README.md`); no golden data ships yet.
 - **Manifest coverage**: events by operation, slices by `status` and `text_status`, judicial events by effect, and jurisdiction and state-amendment counts.
 
 ### Validator
@@ -42,7 +43,7 @@ New checks in `scripts/validate.py` for v0.3.0 manifests:
 | Events linked to a section / with quoted `old_text` | 13,710 / 8,679 |
 | Judicial events (`struck_down` / `stayed` / `read_down`) | 4 (2 / 1 / 1) |
 | Jurisdictions (current / historical / ISO aliases) | 47 (37 / 10 / 7) |
-| State amendments (parsed / raw) | 617 (560 / 57) from 353 sections |
+| State amendments (parsed / raw) | 617 (561 / 56) from 353 sections |
 | State amendments closed on 2024-07-01 | 121 (CrPC 102, IPC 18, Evidence Act 1) |
 
 ### Known limits

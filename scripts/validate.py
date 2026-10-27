@@ -230,7 +230,8 @@ def report(name: str, bad: list[str]) -> list[str]:
     return bad[:MAX_ERRORS_PER_CHECK] + extra
 
 
-def duplicates(values: list[Any]) -> list[Any]:
+def repeated_keys(values: list[Any]) -> list[Any]:
+    """The values that occur more than once, in first-seen order."""
     counts = Counter(values)
     return [v for v, n in counts.items() if n > 1]
 
@@ -241,14 +242,14 @@ def check_invariants(tables: dict[str, list[dict[str, Any]]], v020: bool) -> lis
     act_ids = {a["act_id"] for a in acts}
     slug_keys = [(s["act_id"], s["structural_unit"], s["language"], s["slug"]) for s in tables[SECTIONS]]
     errors = report("Section slugs are unique per (act_id, structural_unit, language)",
-                    [f"slug collision {' '.join(map(str, k))}" for k in duplicates(slug_keys)])
+                    [f"slug collision {' '.join(map(str, k))}" for k in repeated_keys(slug_keys)])
     errors += report("repealed_by resolves to a known Act", [
         f"{a['act_id']}: repealed_by {a['repealed_by']} is not a known act_id"
         for a in acts if a["repealed_by"] is not None and a["repealed_by"] not in act_ids])
     if not v020:
         return errors
     errors += report("work_id is unique across Acts",
-                     [f"duplicate work_id {w}" for w in duplicates([a["work_id"] for a in acts])])
+                     [f"duplicate work_id {w}" for w in repeated_keys([a["work_id"] for a in acts])])
     errors += report("Footnote section_slugs resolve to a section of the same Act",
                      footnote_link_errors(tables))
     # v0.1.1 carries impossible wef_dates (e.g. 1959-19-01); v0.2.0 nulls them.
@@ -370,7 +371,9 @@ def event_link_errors(tables: dict[str, Rows], chains: Chains) -> list[str]:
 # A ruling's window may hold only these statuses (section_versions docstring):
 # struck_down is final (only a repeal follows), and a stay lasts until a
 # stay_lifted ruling, unless a strike-down or repeal ends it first.
-AFTER_RULING = {"struck_down": ("struck_down", "repealed"), "stayed": ("stayed", "struck_down", "repealed")}
+FINAL_STATUSES = section_versions_stage.FINAL_STATUSES
+STAYED, STAY_LIFTED = section_versions_stage.STAYED, section_versions_stage.STAY_LIFTED
+AFTER_RULING = {"struck_down": FINAL_STATUSES, STAYED: (STAYED, *FINAL_STATUSES)}
 
 
 def ruling_errors(tables: dict[str, Rows], chains: Chains) -> list[str]:
@@ -387,8 +390,8 @@ def ruling_errors(tables: dict[str, Rows], chains: Chains) -> list[str]:
             if j["effect"] not in AFTER_RULING:
                 continue
             start = j["decision_date"]
-            end = next((k["decision_date"] for k in provision if j["effect"] == "stayed"
-                        and k["effect"] == "stay_lifted" and k["decision_date"] > start), None)
+            end = next((k["decision_date"] for k in provision if j["effect"] == STAYED
+                        and k["effect"] == STAY_LIFTED and k["decision_date"] > start), None)
             for v in chain:
                 overlaps = (v["valid_to"] is None or v["valid_to"] > start) and \
                     (end is None or v["valid_from"] < end)
@@ -410,36 +413,36 @@ def time_reference_errors(tables: dict[str, Rows]) -> list[str]:
     codes = {j["code"] for j in tables[jurisdictions_stage.FILE]}
     bad = []
 
-    def act(row_id: str, column: str, value: str | None) -> None:
+    def check_act(row_id: str, column: str, value: str | None) -> None:
         if value is not None and value not in act_ids:
             bad.append(f"{row_id}: unknown {column} {value}")
 
-    def section(row_id: str, act_id: str, slug: str) -> None:
+    def check_section(row_id: str, act_id: str, slug: str) -> None:
         if act_id in act_ids and (act_id, slug) not in slugs:
             bad.append(f"{row_id}: {act_id} has no section {slug}")
 
-    def code(row_id: str, column: str, value: str | None) -> None:
+    def check_code(row_id: str, column: str, value: str | None) -> None:
         if value is not None and value not in codes:
             bad.append(f"{row_id}: {column} {value} is not a jurisdiction code")
 
     for a in tables[ACTS]:
-        code(a["act_id"], "jurisdiction", a["jurisdiction"])
+        check_code(a["act_id"], "jurisdiction", a["jurisdiction"])
     for v in tables[section_versions_stage.FILE]:
-        act(v["id"], "act_id", v["act_id"])
-        act(v["id"], "amended_by_act_id", v["amended_by_act_id"])
-        section(v["id"], v["act_id"], v["slug"])
+        check_act(v["id"], "act_id", v["act_id"])
+        check_act(v["id"], "amended_by_act_id", v["amended_by_act_id"])
+        check_section(v["id"], v["act_id"], v["slug"])
     for e in tables[events_stage.FILE]:
-        act(e["id"], "act_id", e["act_id"])
-        act(e["id"], "amending_instrument_id", e["amending_instrument_id"])
+        check_act(e["id"], "act_id", e["act_id"])
+        check_act(e["id"], "amending_instrument_id", e["amending_instrument_id"])
         for slug in e["provisions_affected"]:
-            section(e["id"], e["act_id"], slug)
+            check_section(e["id"], e["act_id"], slug)
     for j in tables[judicial_events_stage.FILE]:
-        act(j["id"], "act_id", j["act_id"])
+        check_act(j["id"], "act_id", j["act_id"])
     for s in tables[state_amendments_stage.FILE]:
-        act(s["id"], "central_act_id", s["central_act_id"])
+        check_act(s["id"], "central_act_id", s["central_act_id"])
         if s["section_id"] not in section_ids:
             bad.append(f"{s['id']}: section_id {s['section_id']} is not a section")
-        code(s["id"], "state_jurisdiction", s["state_jurisdiction"])
+        check_code(s["id"], "state_jurisdiction", s["state_jurisdiction"])
     return bad
 
 

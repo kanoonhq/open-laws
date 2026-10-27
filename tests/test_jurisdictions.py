@@ -15,7 +15,7 @@ from conftest import ROOT, BuildOutput, Rows, corrupt_output, run_validator
 
 sys.path.insert(0, str(ROOT / "scripts"))
 from enrich import CURATED_DIR  # noqa: E402
-from enrich.jurisdictions import code_for_name, load, resolve_code  # noqa: E402
+from enrich.jurisdictions import code_for_name, load, read_curated, resolve_code  # noqa: E402
 
 JURISDICTIONS = "jurisdictions.parquet"
 
@@ -110,6 +110,24 @@ def test_codes_and_former_iso_codes_resolve(built: BuildOutput, code: str, expec
 def test_names_including_historical_ones_map_to_codes(built: BuildOutput, name: str, on: str | None,
                                                        expected: str | None) -> None:
     assert code_for_name(built.table(JURISDICTIONS), name, on) == expected
+
+
+ISO_OBP = "https://www.iso.org/obp/ui/#iso:code:3166:IN"
+
+
+def test_iso_codes_and_aliases_cite_the_iso_obp_not_a_mirror(built: BuildOutput) -> None:
+    rows = built.table(JURISDICTIONS)
+    assert {j["source_url"] for j in rows if j["iso_code"]} == {ISO_OBP}
+    _, aliases = read_curated(CURATED_DIR / "iso_aliases.csv")
+    assert {a["source_url"] for a in aliases} == {ISO_OBP}
+
+
+def test_state_of_andhra_starts_on_the_andhra_state_act_appointed_day(built: BuildOutput) -> None:
+    # A1953-30 s. 2(a): "appointed day" means the 1st day of October, 1953; s. 3 forms the State.
+    andhra = by_code(built)["IN-HIST-AP"]
+    assert (andhra["valid_from"], andhra["valid_to"]) == ("1953-10-01", "2014-06-02")
+    assert {"A1953-30 s. 2(a)", "A1953-30 s. 3"} <= set(andhra["legal_basis"])
+    assert code_for_name(built.table(JURISDICTIONS), "Andhra", "1953-09-30") is None
 
 
 def test_legal_basis_cites_acts_in_the_published_corpus() -> None:

@@ -11,6 +11,8 @@ The fixtures add real v0.1.1 section rows, copied verbatim with their Acts
 - IPC s. 353 (A1860-45:353): a repealed Act's row closes at its repeal_date.
 - CrPC s. 197 (A1974-2:197): a last entry with no [Vide …] reference.
 - RFCTLARR Act ss. 24 and 40 (A2013-30): an added proviso, and w.e.f. dates.
+- Societies Registration Act s. 12 (A1860-21:12): a last entry whose reference
+  is printed "[Vide Act Orissa Act 6 of 2013, s. 4]".
 """
 
 from __future__ import annotations
@@ -130,7 +132,7 @@ def test_section_text_is_left_unchanged(built_blocks: BuildOutput) -> None:
 
 def test_coverage_reports_parsed_and_raw(built_blocks: BuildOutput) -> None:
     c = built_blocks.manifest()["coverage"]["state_amendments"]
-    assert (c["rows"], c["parsed"], c["raw"], c["sections"]) == (16, 11, 5, 6)
+    assert (c["rows"], c["parsed"], c["raw"], c["sections"]) == (21, 16, 5, 7)
     assert c["without_reference"] == 1
     assert c["unmapped_state_names"] == []
 
@@ -163,3 +165,21 @@ def test_last_entry_without_a_reference_is_kept(built_blocks: BuildOutput) -> No
 def test_validator_accepts_the_build(built_blocks: BuildOutput) -> None:
     result = run_validator(built_blocks.dir)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_state_named_after_a_stray_act_prefix_in_the_reference_maps(built_blocks: BuildOutput) -> None:
+    # Societies Registration Act s. 12: the last Orissa entry has no heading and is
+    # printed "[Vide Act Orissa Act 6 of 2013, s. 4]"; Orissa is Odisha's former name.
+    rows = [r for r in built_blocks.table(STATE_AMENDMENTS) if r["section_id"] == "A1860-21:12"]
+    last = rows[-1]
+    assert (last["id"], last["state_name"], last["state_jurisdiction"]) == (
+        "A1860-21:s12:IN-OD-4", "Orissa", "IN-OD")
+    assert last["state_act_reference"] == "Act Orissa Act 6 of 2013, s. 4"
+
+
+def test_every_row_cites_the_v011_section_it_was_parsed_from(built_blocks: BuildOutput) -> None:
+    kerala = by_id(built_blocks)["A1947-14:s2:IN-KL"]
+    assert kerala["source_url"] == (
+        "https://github.com/kanoonhq/open-laws/blob/7222593/data/indian_central_act_sections.parquet"
+        "#A1947-14:2")
+    assert all(r["source_url"] for r in built_blocks.table(STATE_AMENDMENTS))

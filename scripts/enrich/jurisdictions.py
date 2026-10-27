@@ -86,7 +86,8 @@ def load(curated_dir: Path = CURATED_DIR) -> Rows:
     return rows
 
 
-def duplicates(values: Iterable[str]) -> list[str]:
+def repeated_values(values: Iterable[str]) -> list[str]:
+    """The values that occur more than once, sorted."""
     seen: set[str] = set()
     return sorted({v for v in values if v in seen or seen.add(v)})
 
@@ -95,9 +96,9 @@ def consistency_errors(rows: Rows) -> list[str]:
     """Codes or aliases that clash, links that do not resolve, and intervals
     that contradict a succession link."""
     by_code = {j["code"]: j for j in rows}
-    errors = [f"duplicate code {c}" for c in duplicates(j["code"] for j in rows)]
+    errors = [f"duplicate code {c}" for c in repeated_values(j["code"] for j in rows)]
     aliases = [a for j in rows for a in j["iso_aliases"]]
-    errors += [f"alias {a} is given twice" for a in duplicates(aliases)]
+    errors += [f"alias {a} is given twice" for a in repeated_values(aliases)]
     errors += [f"alias {a} is also a jurisdiction code" for a in sorted(set(aliases) & by_code.keys())]
     for j in rows:
         if j["valid_from"] and j["valid_to"] and j["valid_from"] >= j["valid_to"]:
@@ -124,6 +125,18 @@ def normalise_name(name: str) -> str:
     return text.strip(" .,:;-—–")
 
 
+def names_of(jurisdiction: Row) -> list[str]:
+    """Its name and other_names."""
+    return [jurisdiction["name"], *jurisdiction["other_names"]]
+
+
+def named(rows: Rows, name: str) -> Rows:
+    """The jurisdictions whose name or one of whose other_names is `name`
+    (compared by normalise_name), in table order."""
+    key = normalise_name(name)
+    return [j for j in rows if key in {normalise_name(n) for n in names_of(j)}]
+
+
 def code_for_name(rows: Rows, name: str, on: str | None = None) -> str | None:
     """The code of the jurisdiction called `name` (its name or one of its
     other_names, see normalise_name), or None.
@@ -132,8 +145,7 @@ def code_for_name(rows: Rows, name: str, on: str | None = None) -> str | None:
     "Punjab" gives IN-HIST-PUNJAB on 1960-01-01 and IN-PB on 1970-01-01. Without
     it a name shared by a current and a historical unit gives the current one;
     a name only historical units bear (Bombay) gives that unit."""
-    key = normalise_name(name)
-    matches = [j for j in rows if key in {normalise_name(n) for n in [j["name"], *j["other_names"]]}]
+    matches = named(rows, name)
     if on is not None:
         matches = [j for j in matches
                    if (j["valid_from"] is None or j["valid_from"] <= on)

@@ -13,7 +13,8 @@ into one row per state entry. Section text is left unchanged.
   section's heading) and is not a row.
 - State: the state-name heading that opens the entry ("Kerala", "Orissa.—",
   "Union territories of A, B and C"), one row per named jurisdiction; with no
-  heading, the State named in the reference ("[Vide Orissa Act 21 of 1958]").
+  heading, the first State named in the reference ("[Vide Orissa Act 21 of
+  1958]", or "[Vide Act Orissa Act 6 of 2013]" as printed).
   Names map through the jurisdictions table, only to a unit that existed for
   the whole year of the reference (so "Madhya Pradesh" in 1995 is the
   undivided State); with no year, only a name borne by one unit maps.
@@ -27,6 +28,8 @@ into one row per state entry. Section text is left unchanged.
 - effective_date: a `(w.e.f. …)` date in or just after the reference, else null.
 - valid_to: the central Act's repeal_date when it is repealed (IPC, CrPC and
   the Evidence Act: 2024-07-01, the BNS/BNSS/BSA transition), else null.
+- source_url: a permalink to the frozen v0.1.1 sections-table row the block
+  was parsed from (as in indian_act_section_versions).
 - id: {central_act_id}:s{section slug}:{code | unmapped}, -2, -3, ... on collision.
 """
 
@@ -38,11 +41,11 @@ from collections.abc import Mapping
 
 import pyarrow as pa
 
-from enrich import Coverage, DerivedTable, Row, Rows
+from enrich import Coverage, DerivedTable, Row, Rows, unique_ids
 from enrich import jurisdictions as jurisdictions_stage
 from enrich.dates import MONTHS, iso_date
-from enrich.jurisdictions import code_for_name, normalise_name
-from table_files import ACTS, SECTIONS
+from enrich.jurisdictions import code_for_name, named, names_of
+from table_files import ACTS, SECTIONS, v011_source_url
 
 FILE = "state_amendments.parquet"
 TYPES = ("substitution", "insertion", "omission", "proviso")
@@ -87,9 +90,9 @@ PRINCIPAL_ACT = re.compile(r"^In\s+the\s+(?:principal\s+Act|Code|said\s+Act)\s*,
 
 def name_pattern(jurisdictions: Rows) -> re.Pattern[str]:
     """Any State/UT name or other name, longest first, case- and space-insensitive."""
-    names = {n for j in jurisdictions if j["type"] != "union" for n in [j["name"], *j["other_names"]]}
+    names = {n for j in jurisdictions if j["type"] != "union" for n in names_of(j)}
     alternatives = [r"\s+".join(map(re.escape, n.split())) for n in sorted(names, key=len, reverse=True)]
-    return re.compile(rf"(?:{UNIT_PREFIX})?({'|'.join(alternatives)}){UNIT_SUFFIX}", re.I)
+    return re.compile(rf"(?<![A-Za-z])(?:{UNIT_PREFIX})?({'|'.join(alternatives)}){UNIT_SUFFIX}", re.I)
 
 
 def heading(text: str, names: re.Pattern[str]) -> tuple[list[str], int]:
@@ -114,10 +117,15 @@ def resolve(jurisdictions: Rows, name: str, reference: str | None) -> str | None
     if year:
         first = code_for_name(jurisdictions, name, on=f"{year[1]}-01-01")
         return first if first == code_for_name(jurisdictions, name, on=f"{year[1]}-12-31") else None
-    key = normalise_name(name)
-    units = [j["code"] for j in jurisdictions
-             if key in {normalise_name(n) for n in [j["name"], *j["other_names"]]}]
-    return units[0] if len(units) == 1 else None
+    units = named(jurisdictions, name)
+    return units[0]["code"] if len(units) == 1 else None
+
+
+def reference_state(reference: str, names: re.Pattern[str]) -> list[str]:
+    """[the first jurisdiction name in a reference], or []: "Orissa Act 21 of
+    1958" and the misprinted "Act Orissa Act 6 of 2013" both give Orissa."""
+    m = names.search(reference)
+    return [" ".join(m[1].split())] if m else []
 
 
 def amendment_type(text: str) -> str | None:
@@ -183,7 +191,7 @@ def rows_for_section(section: Row, valid_to: str | None, jurisdictions: Rows,
         state_names, end = heading(text, names)
         amended = text[end:].lstrip(" \n.:,;—–-") if state_names else text
         if not state_names and reference:
-            state_names = heading(reference, names)[0][:1]
+            state_names = reference_state(reference, names)
         common = {
             "central_act_id": section["act_id"],
             "section_id": section["id"],
@@ -195,7 +203,7 @@ def rows_for_section(section: Row, valid_to: str | None, jurisdictions: Rows,
             "raw_text": raw,
             "effective_date": effective_date(ref[1], ref[2]) if ref else None,
             "valid_to": valid_to,
-            "source_url": None,  # the v0.1.1 corpus records no per-section URL
+            "source_url": v011_source_url(SECTIONS, section["id"]),
         }
         for name in state_names or [None]:
             code = resolve(jurisdictions, name, reference) if name else None
@@ -207,21 +215,16 @@ def build(tables: Mapping[str, Rows]) -> Rows:
     jurisdictions = tables[jurisdictions_stage.FILE]
     names = name_pattern(jurisdictions)
     repealed = {a["act_id"]: a["repeal_date"] for a in tables[ACTS] if a["is_repealed"]}
-    used: set[str] = set()
-    out: Rows = []
-    for section in tables[SECTIONS]:
-        for row in rows_for_section(section, repealed.get(section["act_id"]), jurisdictions, names):
-            base = f"{row['central_act_id']}:s{row['section_slug']}:{row['state_jurisdiction'] or 'unmapped'}"
-            row_id, n = base, 1
-            while row_id in used:
-                n += 1
-                row_id = f"{base}-{n}"
-            used.add(row_id)
-            out.append({name: ({"id": row_id, **row})[name] for name in SCHEMA.names})
-    return out
+    rows = [row for section in tables[SECTIONS]
+            for row in rows_for_section(section, repealed.get(section["act_id"]), jurisdictions, names)]
+    ids = unique_ids(f"{r['central_act_id']}:s{r['section_slug']}:{r['state_jurisdiction'] or 'unmapped'}"
+                     for r in rows)
+    return [{name: ({"id": row_id, **row})[name] for name in SCHEMA.names}
+            for row_id, row in zip(ids, rows, strict=True)]
 
 
-def parsed(row: Row) -> bool:
+def is_fully_parsed(row: Row) -> bool:
+    """True when the entry's state, reference and amendment type were all parsed."""
     return all(row[k] is not None for k in ("state_jurisdiction", "state_act_reference", "amendment_type"))
 
 
@@ -230,8 +233,8 @@ def coverage(rows: Rows) -> Coverage:
     types = Counter(r["amendment_type"] or "untyped" for r in rows)
     return {"state_amendments": {
         "rows": len(rows),
-        "parsed": sum(map(parsed, rows)),
-        "raw": sum(not parsed(r) for r in rows),
+        "parsed": sum(map(is_fully_parsed, rows)),
+        "raw": sum(not is_fully_parsed(r) for r in rows),
         "sections": len({r["section_id"] for r in rows}),
         "without_reference": sum(r["state_act_reference"] is None for r in rows),
         "by_state": dict(sorted(states.items())),

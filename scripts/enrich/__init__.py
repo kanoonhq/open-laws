@@ -12,13 +12,16 @@ must use distinct top-level keys.
 
 Derived tables (v0.3.0) are new output tables rather than new columns. Each
 is one stage module that defines a module-level DerivedTable and is listed
-once in enrich/registry.py; the build writes it and validate.py checks it
-against its JSON schema and recomputes its coverage, with no other edits.
+once in enrich/registry.py. The registry entry is enough for the build to
+write the table and its coverage, and for validate.py to check it against its
+JSON schema and recompute that coverage. Invariants specific to one table
+(e.g. contiguous section-version intervals, references that must resolve)
+are not covered by the registry: they are written in validate.py.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -52,3 +55,18 @@ class DerivedTable:
     json_schema: str  # file name in schemas/
     build: Callable[[Mapping[str, Rows]], Rows]
     coverage: Callable[[Rows], Coverage]
+
+
+def unique_ids(bases: Iterable[str]) -> list[str]:
+    """Each base id in order, with -2, -3, ... appended to repeats, so ids stay
+    unique and stable across rebuilds of the same rows."""
+    used: set[str] = set()
+    ids = []
+    for base in bases:
+        row_id, n = base, 1
+        while row_id in used:
+            n += 1
+            row_id = f"{base}-{n}"
+        used.add(row_id)
+        ids.append(row_id)
+    return ids

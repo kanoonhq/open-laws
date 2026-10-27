@@ -68,13 +68,12 @@ from dataclasses import dataclass, replace
 from itertools import pairwise
 
 import pyarrow as pa
-from extract_inputs import V011_COMMIT
 
 from enrich import BUILD_INFO, Coverage, DerivedTable, Row, Rows
 from enrich import events as events_stage
-from enrich import judicial_events as judicial_stage
+from enrich import judicial_events as judicial_events_stage
 from enrich.footnotes import BRACKET_OR_STARS, INLINE, OMITTED, markers, own_text
-from table_files import ACTS, FOOTNOTES, SECTIONS
+from table_files import ACTS, FOOTNOTES, SECTIONS, v011_source_url
 
 FILE = "indian_act_section_versions.parquet"
 RECORDED_FROM = "v0.3.0"
@@ -84,10 +83,12 @@ STATUSES = ("in_force", "not_commenced", "repealed", "omitted", "expired", "stru
             "ordinance_lapsed", "unknown")
 # Omitted text without a footnote number.
 BARE_STARS = re.compile(r"\*\s?\*\s?\*")
+# Status lifecycle (shared with validate.py): a repeal and a strike-down are
+# final; a stay lasts until a stay_lifted ruling, which restores in_force.
+FINAL_STATUSES = ("repealed", "struck_down")
+STAYED, STAY_LIFTED = "stayed", "stay_lifted"
 # Judicial effect -> the status it opens; read_down and upheld change nothing.
-RULING_STATUS = {"struck_down": "struck_down", "stayed": "stayed", "stay_lifted": "in_force"}
-SOURCE_URL = (f"https://github.com/kanoonhq/open-laws/blob/{V011_COMMIT}/data/{SECTIONS}"
-              "#{section_id}")
+RULING_STATUS = {"struck_down": "struck_down", STAYED: STAYED, STAY_LIFTED: "in_force"}
 STRING, STRINGS = pa.string(), pa.list_(pa.string())
 SCHEMA = pa.schema([
     ("id", STRING), ("act_id", STRING), ("section_number", STRING), ("slug", STRING),
@@ -318,9 +319,9 @@ def next_status(held: str, change: str) -> str:
     """The status a slice holding `held` gets from a later change. A repeal and
     a strike-down are final; a stay lasts until stay_lifted (`in_force`), which
     lifts nothing else; any other slice takes the change."""
-    if held in ("repealed", "struck_down") and change != "repealed":
+    if held in FINAL_STATUSES and change != "repealed":
         return held
-    if change == "in_force" and held != "stayed":
+    if change == "in_force" and held != STAYED:
         return held  # stay_lifted only lifts a stay
     return change
 
@@ -345,7 +346,7 @@ def rows_for(section: Row, chain: list[Slice], info: Row) -> Rows:
     common = {
         "act_id": section["act_id"], "section_number": section["section_number"], "slug": section["slug"],
         "structural_unit": section["structural_unit"],
-        "source_url": SOURCE_URL.format(section_id=section["id"]),
+        "source_url": v011_source_url(SECTIONS, section["id"]),
         "source_sha256": hashlib.sha256((text or "").encode("utf-8")).hexdigest(),
         "retrieved_at": info["export_timestamp"], "parser_version": info["version"],
         "recorded_from": RECORDED_FROM, "recorded_to": None, "language": section["language"],
@@ -380,7 +381,7 @@ def build(tables: Mapping[str, Rows]) -> Rows:
         for slug in e["provisions_affected"]:
             events[(e["act_id"], slug)].append(e)
     rulings: dict[tuple[str, str], Rows] = defaultdict(list)
-    for j in tables[judicial_stage.FILE]:
+    for j in tables[judicial_events_stage.FILE]:
         rulings[(j["act_id"], j["provision_path"])].append(j)
     info = tables[BUILD_INFO][0]
 

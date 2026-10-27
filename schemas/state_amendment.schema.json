@@ -64,9 +64,9 @@
       "description": "Date the state amendment ceased to apply: the central Act's repeal_date when it is repealed (2024-07-01 for the IPC, CrPC and Evidence Act)"
     },
     "source_url": {
-      "type": ["string", "null"],
+      "type": "string",
       "pattern": "^https://",
-      "description": "Provenance; null in v0.3.0 (the corpus records no per-section URL)"
+      "description": "Provenance: a permalink to the frozen v0.1.1 sections-table row the entry was parsed from (the corpus records no per-section portal URL)"
     }
   }
 }

@@ -24,7 +24,8 @@ from collections.abc import Mapping
 
 import pyarrow as pa
 
-from enrich import Coverage, DerivedTable, Row, Rows
+from enrich import Coverage, DerivedTable, Row, Rows, unique_ids
+from enrich.acts import act_id_for
 from enrich.footnotes import own_text
 from table_files import ACTS, FOOTNOTES
 
@@ -75,7 +76,7 @@ def old_text(text: str) -> str | None:
 def event(act_id: str, operation: str, cited: tuple[str, str, str | None] | None,
           acts: Mapping[str, Row], **fields: object) -> Row:
     instrument = None
-    if cited and (candidate := f"A{cited[1]}-{cited[0]}") in acts:
+    if cited and (candidate := act_id_for(cited[1], cited[0])) in acts:
         instrument = candidate
     amending_citation = None
     if cited:
@@ -124,16 +125,8 @@ def build(tables: Mapping[str, Rows]) -> Rows:
                  "assent_date": acts[a["repealed_by"]]["assent_date"]}
         drafts.append((f"{a['act_id']}:ev:{instrument_key(e, cited)}:repeal", e))
 
-    used: set[str] = set()
-    rows: Rows = []
-    for base, e in drafts:
-        event_id, n = base, 1
-        while event_id in used:
-            n += 1
-            event_id = f"{base}-{n}"
-        used.add(event_id)
-        rows.append({"id": event_id, **e})
-    return rows
+    ids = unique_ids(base for base, _ in drafts)
+    return [{"id": event_id, **e} for event_id, (_, e) in zip(ids, drafts, strict=True)]
 
 
 def coverage(rows: Rows) -> Coverage:

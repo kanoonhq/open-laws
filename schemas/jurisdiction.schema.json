@@ -25,7 +25,7 @@
     "type": {"type": "string", "enum": ["union", "state", "union_territory"], "description": "Current, or final, status"},
     "valid_from": {
       "$ref": "#/$defs/date",
-      "description": "First day; null when it existed before 1956-11-01 (earlier history is not modelled)"
+      "description": "First day, from a corpus provision; null when it existed before 1956-11-01 and no start date is citable from the corpus (earlier history is not modelled)"
     },
     "valid_to": {"$ref": "#/$defs/date", "description": "Day it ceased to exist (exclusive); null while it exists"},
     "successor_of": {
@@ -42,7 +42,7 @@
     },
     "iso_status": {
       "type": "string", "enum": ["verified", "unverified", "none"],
-      "description": "Whether iso_code was checked against the pinned ISO list (none: no ISO code)"
+      "description": "Whether iso_code was cross-checked against the pinned ISO list via the secondary mirror named in the curated header (none: no ISO code)"
     },
     "iso_aliases": {
       "type": "array", "items": {"type": "string", "pattern": "^IN-[A-Z]{2}$"},

@@ -23,6 +23,7 @@ from collections.abc import Mapping
 import pyarrow as pa
 
 from enrich import CURATED_DIR, Coverage, DerivedTable, Row, Rows
+from enrich.acts import act_id_for
 from enrich.events import citation
 from table_files import ACTS
 
@@ -41,18 +42,19 @@ def curated() -> Rows:
     return json.loads(SOURCE.read_text(encoding="utf-8"))
 
 
-def act_id(ruling: Row) -> str:
+def ruling_act_id(ruling: Row) -> str:
+    """The act_id the ruling's `Act N of YYYY` citation names."""
     cited = citation(ruling["act_citation"])
     if cited is None:
         raise ValueError(f"{SOURCE.name}: unparseable act_citation {ruling['act_citation']!r}")
-    return f"A{cited[1]}-{cited[0]}"
+    return act_id_for(cited[1], cited[0])
 
 
 def build(tables: Mapping[str, Rows]) -> Rows:
     acts = {a["act_id"] for a in tables[ACTS]}
     rows: Rows = []
     for ruling in curated():
-        resolved = act_id(ruling)
+        resolved = ruling_act_id(ruling)
         if resolved not in acts:
             continue
         fields = {k: v for k, v in ruling.items() if k != "act_citation"}
@@ -67,7 +69,7 @@ def coverage(rows: Rows) -> Coverage:
     emitted = {(e["act_id"], e["provision_path"], e["decision_date"]) for e in rows}
     unresolved = sorted(
         f"{r['act_citation']}, s. {r['provision_path']} ({r['decision_date']})" for r in curated()
-        if (act_id(r), r["provision_path"], r["decision_date"]) not in emitted)
+        if (ruling_act_id(r), r["provision_path"], r["decision_date"]) not in emitted)
     return {"judicial_events_by_effect": {effect: counts[effect] for effect in EFFECTS},
             "judicial_events_unresolved_act": unresolved}
 

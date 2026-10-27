@@ -35,9 +35,8 @@ from enrich import acts as acts_stage
 from enrich import footnotes as footnotes_stage
 from enrich import mappings as mappings_stage
 from enrich.registry import DERIVED_TABLES
-from table_files import ACTS, ARCHIVE, FOOTNOTES, MAPPINGS, SECTIONS
+from table_files import ACTS, ARCHIVE, FOOTNOTES, MAPPINGS, SECTIONS, VERSION
 
-VERSION = "v0.3.0"
 
 STRING, INT32, BOOL = pa.string(), pa.int32(), pa.bool_()
 # The v0.1.1 column layout; stages append their FIELDS after these.

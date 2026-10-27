@@ -30,9 +30,9 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
 from crawlers import warc
+from table_files import REPO_URL, VERSION
 
-REPO_URL = "https://github.com/kanoonhq/open-laws"
-CRAWLER_VERSION = "0.3.0"
+CRAWLER_VERSION = VERSION.removeprefix("v")  # one version: the build's
 DEFAULT_USER_AGENT = f"open-laws-crawler/{CRAWLER_VERSION} (+{REPO_URL})"
 MAX_PER_HOST = 2
 MIN_INTERVAL = 0.5
